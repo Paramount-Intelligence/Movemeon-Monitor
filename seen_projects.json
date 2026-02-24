@@ -1048,5 +1048,19 @@
     "time_posted": "19 minutes",
     "status": "New Project",
     "detected_at": "2026-02-24 20:44:50"
+  },
+  {
+    "id": "x72w5p",
+    "title": "Federated Agent Development",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "General Big Data & Analytics Expertise"
+    ],
+    "description": "A large financial services client is seeking to define its strategy and operating model for federated AI agent development (\u201ccitizen development\u201d). The work will focus on establishing acceptable boundaries for personal, shared, and embedded agent use; assessing and recommending technical guardrails; refining governance mechanisms; and defining monitoring and value frameworks to safely enable broader AI adoption. The engagement will also include sequencing a phased activation roadmap.\n\nThis is scoped as a 12-week project. We are looking for a principal consultant with strong management consulting experience, familiarity with AI gov/risk frameworks, and practical understanding of enterprise tech platforms (e.g., Microsoft Copilot). Note that the person should be able to work with technical/product experts to articulate platform capabilities and how they apply to agent development but does not need to be the expert.\nThe individual should be comfortable operating at both strategic and technical levels and engaging executive stakeholders. Soft start is March 2nd, 2026 with official start March 9th.",
+    "location": "",
+    "time_posted": "12 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-24 21:19:51"
   }
 ]
