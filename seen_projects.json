@@ -1062,5 +1062,19 @@
     "time_posted": "12 minutes",
     "status": "New Project",
     "detected_at": "2026-02-24 21:19:51"
+  },
+  {
+    "id": "xzmvb6",
+    "title": "Data Migration & Dash-boarding Lead - Power BI to Sigma Transition",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "Big Data & Analytics Project Management"
+    ],
+    "description": "***NOTE TO CANDIDATES: As part of your pitch, please copy/paste the \u201cIdeal Candidate\u201d bullets and briefly reply with your relevant qualifications for each one.\n\nWe\u2019re a PE-backed leading cloud-based platform transforming how enterprises manage Audit, Risk, Compliance, and ESG. As we move from a single-product offering to a unified \"connected risk\" platform architecture, we have successfully stabilized our core data foundation on Snowflake. However, we're now focused on a major \"fix the data problem\" initiative to modernize our extensive dashboard footprint.\n\nWe're looking for a technical consultant or boutique firm to lead the strategic rebuild and migration of our dashboards from a legacy Power BI environment to Sigma. This isn't just a lift-and-shift; it requires a deep understanding of dashboard rebuilds and data model alignment, specifically for our largest enterprise customers who have highly customized reporting needs. You will ensure that as we move away from outdated technology, our Tier-1 clients maintain (and improve) their real-time visibility and data-driven decision-making capabilities.\n\nKey Responsibilities\nDevelop a structured framework for transitioning highly customized Power BI dashboards to Sigma, ensuring full data model alignment and feature parity.\nRecreate complex data visualizations and custom fields within Sigma, leveraging its spreadsheet-like interface and live Snowflake integration.\nIdentify functional limitations in the legacy Power BI setup and utilize Sigma\u2019s capabilities to provide more robust, real-time reporting for complex user-defined roll-ups.\nPartner with the engineering and product teams to validate that migrated dashboards meet the rigorous compliance and risk-tracking requirements of our enterprise users.\nDefine standardized reporting templates that reduce technical debt and allow for easier maintenance across our eight-product portfolio\nIdeal Candidate\nDeep, hands-on experience with both Power BI and Sigma (well-versed in the constraints and strengths of both platforms)\nStrong proficiency on how Snowflake integrates with modern BI tools to ensure performant, real-time reporting\nSaaS/FinTech background and working within B2B enterprise software environments where data accuracy and multi-tenant security are paramount\nProven track record of migrating and rebuilding large-scale, highly customized reporting environments for enterprise-level clients\nAbility to look at a complex legacy dashboard and determine the most efficient way to modernize it in a new environment",
+    "location": "",
+    "time_posted": "20 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-24 23:26:43"
   }
 ]
