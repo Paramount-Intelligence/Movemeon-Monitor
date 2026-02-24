@@ -1006,5 +1006,47 @@
     "time_posted": "an hour",
     "status": "New Project",
     "detected_at": "2026-02-24 03:30:13"
+  },
+  {
+    "id": "r92k18",
+    "title": "Data Quality Analyst",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "Data Science & Analysis"
+    ],
+    "description": "Role Summary:\n\nA Data Quality Analyst (DQA) is responsible for ensuring that organisational data is accurate, consistent, complete, and reliable across all systems and processes. They analyse datasets, identify quality issues, define data quality rules, and work with\nbusiness and technical teams to remediate and implement controls.\n\n\nData Quality Assessment & Monitoring\n\uf0b7 Perform data profiling, data cleansing, and quality assessments.\n\uf0b7 Identify anomalies, duplicates, inconsistencies, and missing information.\n\uf0b7 Build and maintain data quality dashboards and automated checks.\n\n\uf0b7 Define, document, and validate data quality rules, thresholds, and KPIs.\n\uf0b7 Support data stewardship processes and master data governance activities.\n\n\uf0b7 Investigate root causes of data defects across source systems and business\nprocesses.\n\uf0b7 Recommend corrective and preventive actions.\n\n\uf0b7 Work closely with business SMEs, data engineers, data stewards, and system owners.\n\uf0b7 Communicate data quality findings and progress to leadership.\n\n\n\nProficiency in (depending on organisation environment):\n\uf0b7 SQL, Python, Excel\n\uf0b7 Data profiling tools (Informatica DQ, Talend, Ataccama, Collibra, Alteryx, Power BI, etc.)\n\uf0b7 ETL/ELT and database systems (Azure, Snowflake, Oracle, etc.)\n\n\n\n\uf0b7 Strong SQL and data analysis capabilities\n\uf0b7 Experience with data governance tools\n\uf0b7 Familiarity with metadata, lineage, and MDM concepts\n\uf0b7 Advanced Excel / BI reporting skills\n\n\uf0b7 Ability to understand schemas, data models, APIs, and pipelines\nBusiness Skills\n\uf0b7 Understanding of business processes and data flows\n\uf0b7 Ability to define measurable data quality metrics (completeness, validity,timeliness, etc.)\n\uf0b7 Good documentation and communication skills\nSoft Skills\n\uf0b7 Analytical mindset and problem-solving\n\uf0b7 Attention to detail\n\uf0b7 Stakeholder management\n\uf0b7 Ability to work cross-functionally across technical and business teams\n\n\n\uf0b7 2\u20136+ years in data quality, data governance, data analysis, BI, or related fields\n\uf0b7 Experience in large transformation programmes (ERP, CRM, cloud migrations,\nMDM, data platform initiatives) is a plus\n\uf0b7 Certifications beneficial: DAMA, Collibra, Informatica, Azure Data, etc.",
+    "location": "",
+    "time_posted": "47 seconds",
+    "status": "New Project",
+    "detected_at": "2026-02-24 20:44:49"
+  },
+  {
+    "id": "yndbwp",
+    "title": "DATA ENGINEER - AGENT DOMAIN EXPERT",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "Data Science & Analysis"
+    ],
+    "description": "Position Overview:\n\nServe as the data engineering domain expert for AI agent development. Define requirements for data pipeline patterns, validate generated code quality, and ensure agents produce enterprise-grade solutions following best practices for Bronze-Silver-Gold architecture.\n\nPattern Definition & Curation\n\uf0b7 Define  reusable data engineering patterns (SCD Type 2, deduplication,incremental loads)\n\uf0b7 Create reference implementations for Bronze/Silver/Gold layers\n\uf0b7 Document best practices for PySpark optimization (broadcast joins, partitioning, Z-ORDER)\n\uf0b7 Build pattern library with success criteria and performance benchmarks\n\n\uf0b7 Design 3rd Normal Form (3NF) normalization logic for Silver layer\n\uf0b7 Create Star Schema and Snowflake Schema patterns for Gold layer\n\uf0b7 Define Slowly Changing Dimension (SCD) Type 0/1/2/3 implementations\n\uf0b7 Build fact table and dimension table classification algorithms\n\n\uf0b7 Review AI-generated PySpark code for correctness and performance\n\uf0b7 Define code quality gates (linting scores, test coverage thresholds)\n\uf0b7 Create validation test suites for Bronze/Silver/Gold transformations\n\uf0b7 Establish performance benchmarks (query time, storage efficiency)\n\n\uf0b7 Design Delta Live Tables (DLT) pipeline configurations\n\uf0b7 Implement Unity Catalog metadata and governance standards\n\uf0b7 Optimize Delta Lake performance (ZORDER, OPTIMIZE, VACUUM)\n\uf0b7 Configure auto-scaling clusters and job orchestration\n\n\uf0b7 Work with business analysts to capture data pipeline requirements\n\uf0b7 Translate business rules into technical specifications for agents\n\uf0b7 Define entity relationships, metrics formulas, and transformation logic\n\uf0b7 Create requirement templates that agents can consume\nRequired Skills\n\n\uf0b7 5+ years data engineering experience with PySpark and Apache Spark\n\uf0b7 Deep expertise in SQL and database design (normalization, Star Schema)\n\uf0b7 Production experience with Delta Lake and Databricks\n\uf0b7 Strong understanding of Medallion architecture (Bronze-Silver-Gold)\n\uf0b7 Experience with data pipeline orchestration (DLT)\n\n\uf0b7 Experience with Unity Catalog and data governance\n\uf0b7 Knowledge of data quality frameworks (Great Expectations)\n\uf0b7 Familiarity with cloud data platforms (AWS Glue, Azure Data Factory, GCP Dataflow)\n\uf0b7 Understanding of data mesh and domain-driven data architecture\n\uf0b7 Experience with prompt engineering or working with LLMs\n\n\uf0b7 Platforms: Databricks, Apache Spark, Delta Lake\n\uf0b7 Languages: PySpark, SQL, Python\n\uf0b7 Data Quality: Great Expectations, Soda, dbt tests\n\uf0b7 Orchestration: Delta Live Tables, Apache Airflow\n\uf0b7 Cloud: AWS (S3, Glue, EMR), Azure (ADF, Synapse), GCP (BigQuery,\nDataflow)\n\uf0b7 Governance: Unity Catalog, Apache Atlas, Collibra\n\uf0b7 Version Control: Git",
+    "location": "",
+    "time_posted": "9 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-24 20:44:49"
+  },
+  {
+    "id": "x1kv9v",
+    "title": "AI/ML Engineer- Agent Development",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "Big Data & Analytics Project Management"
+    ],
+    "description": "Position Overview:\n\nDesign, develop, and optimize AI agents that automatically generate production-ready data pipelines. Focus on prompt engineering, LLM integration, and agent orchestration to create intelligent systems that understand requirements and produce high-quality code.\n\n\n\n\uf0b7 Design multi-agent systems (Requirements Intelligence, Prototype Acceleration, Data Engineering agents)\n\uf0b7 Architect agent communication protocols and data flow between agents\n\uf0b7 Define agent capabilities, inputs, outputs, and success criteria\n\uf0b7 Create agent orchestration workflows and dependency management\n\n\uf0b7 Develop sophisticated prompts for Claude API to generate production code (PySpark, SQL, Python)\n\uf0b7 Implement few-shot learning with code pattern examples in Knowledge Base\n\uf0b7 Optimize prompt construction for token efficiency and output quality\n\uf0b7 Fine-tune prompts to achieve &gt;95% first-time code compilation success rate\n\n\uf0b7 Build systems that generate Bronze/Silver/Gold data pipeline code\n\uf0b7 Implement code validation, linting (Pylint), and formatting (Black) pipelines\n\uf0b7 Create automated test generation for unit tests and integration tests\n\uf0b7 Develop query optimization systems (broadcast hints, Z-ORDER, partitioning)\n\n\uf0b7 Design and maintain vector database with 50+ reusable code patterns\n\uf0b7 Implement semantic search for pattern retrieval using embeddings\n\uf0b7 Build pattern evaluation system to track success rates and performance\n\uf0b7 Create feedback loops for continuous pattern improvement\nAgent Performance &amp; Optimization\n\uf0b7 Monitor agent success rates, processing times, and output quality\n\n\uf0b7 Optimize Claude API usage to minimize costs ($1.20-$2.40 per pipeline\ntarget)\n\uf0b7 Implement caching strategies to reduce redundant API calls\n\uf0b7 Build A/B testing framework for prompt variations\n\n\uf0b7 3-5 years experience with LLMs (GPT-4, Claude, Llama) and prompt\nengineering\n\uf0b7 Strong Python programming (async/await, decorators, type hints)\n\uf0b7 Experience with API integration (REST, Claude API, OpenAI API)\n\uf0b7 Understanding of code generation and Abstract Syntax Trees (AST)\n\uf0b7 Knowledge of vector databases (Pinecone, Weaviate, ChromaDB)\n\n\uf0b7 Experience with LangChain, LlamaIndex, or similar frameworks\n\uf0b7 Knowledge of PySpark and Apache Spark\n\uf0b7 Familiarity with data warehouse patterns (Medallion architecture, Star Schema)\n\uf0b7 Experience with Delta Lake and Databricks\n\uf0b7 Background in reinforcement learning from human feedback (RLHF)\n\n\uf0b7 LLMs: Claude Sonnet 4, Claude Opus 4\n\uf0b7 Languages: Python 3.10+, SQL, PySpark\n\uf0b7 Frameworks: LangChain, Pydantic, FastAPI\n\uf0b7 Databases: Vector DB (Pinecone/Weaviate), PostgreSQL\n\uf0b7 MLOps: MLflow, Weights &amp; Biases\n\uf0b7 Version Control: Git, GitHub Actions\n\uf0b7 Cloud: Databricks, AWS/Azure/GCP",
+    "location": "",
+    "time_posted": "19 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-24 20:44:50"
   }
 ]
