@@ -1104,5 +1104,19 @@
     "time_posted": "13 minutes",
     "status": "New Project",
     "detected_at": "2026-02-25 18:42:42"
+  },
+  {
+    "id": "rk5d9j",
+    "title": "Data Governance & BI Roadmap Strategy",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "General Big Data & Analytics Expertise"
+    ],
+    "description": "The client is seeking a technical expert to accelerate their data maturity from a manual/low-maturity state to a semi-automated environment. While the firm has internal resources capable of building dashboards, they lack the underlying data architecture and governance required for scalable, automated business performance management.\n\nKey Responsibilities\n\nDocument current data sources and track how data flows from raw systems into existing aggregated Excel/Power BI environments.\nIdentify opportunities to move calculations from manual tabs into , leveraging raw system data to reduce manual intervention.\nDesign a comprehensive strategic roadmap to move the organization from manual data processing to full automation via API connections.\nEstablish data management standards to ensure data integrity across the Business Performance Management (BPM) dashboard.\nRequired Qualifications\nExpert-level knowledge of and .\nProven track record in data environment design, API integration feasibility, and ETL optimization.\nAbility to assess \"data maturity\" levels and provide executive-level recommendations for long-term infrastructure.\nPrevious work in finance transformation or business intelligence reporting for mid-market firms.\nData Architect / BI Consultant\n2 Months (Phased/Deliverable-based)\nRemote",
+    "location": "",
+    "time_posted": "15 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-25 22:18:27"
   }
 ]
