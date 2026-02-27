@@ -1160,5 +1160,19 @@
     "time_posted": "50 minutes",
     "status": "New Project",
     "detected_at": "2026-02-27 02:31:33"
+  },
+  {
+    "id": "ywmje4",
+    "title": "E-commerce Growth & Analytics Assessment",
+    "categories": [
+      "Sales & Marketing",
+      "Digital Marketing",
+      "E-Commerce Strategy"
+    ],
+    "description": "We are a PE-Backed environmental monitoring manufacturer with an high volume E-commerce business that currently missing an understanding of our growth and a lack of analytics. We are looking for a consultant to diagnose why conversion data is inconsistent across their stack and to provide the analytical visibility needed to scale. This project exists to move the platform beyond basic traffic driving into a sophisticated, data-driven operation with clear customer insights.\n\nThe consultant will perform a six-week diagnostic and creation of dashboards with the potential of creating of a 6\u20139 month growth roadmap. Key tasks include auditing the GA4/SiteLine/Salesforce data funnel to fix broken triggers, like establishing repeat-buyer tracking, and building performance dashboards for KPIs like cart abandonment. The consultant will also evaluate if the current platform (iShop) requires replacement to support marketing automation and international growth.\n\n\n\nExperience as a VP or Senior Director of E-commerce for a $8-$15M in the B2B technology space\nExpertise in GA4, Salesforce, and Power BI, specifically in fixing \"leaky\" funnels and data attribution gaps.\nProven ability to translate complex data audits into a prioritized, actionable 6\u20139 month strategic roadmap.\nHands-on experience with B2B marketing automation and integrating E-commerce data into CRM systems.\nWe'd like to start as soon as practical, remote 2\u20133 month engagement. We would like the consultants viewpoint, but we envision the project follows a phased approach: six weeks for assessment/quick wins and six weeks for roadmap development, with potential for long-term implementation support. The scope and our highest priorities will drive the budget.",
+    "location": "",
+    "time_posted": "17 minutes",
+    "status": "New Project",
+    "detected_at": "2026-02-27 15:49:34"
   }
 ]
