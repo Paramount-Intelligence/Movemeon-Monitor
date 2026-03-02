@@ -1286,5 +1286,19 @@
     "time_posted": "26 minutes",
     "status": "New Project",
     "detected_at": "2026-03-02 20:57:02"
+  },
+  {
+    "id": "xndb92",
+    "title": "Marketing Data Architecture & Global Analytics Strategy (MedTech)",
+    "categories": [
+      "Data & Business Analytics",
+      "Big Data & Analytics",
+      "Big Data & Analytics Project Management"
+    ],
+    "description": "Project Overview\nA global leader in the medical technology sector is seeking a multi-phased approach to modernize its Marketing Insights and Operations. The current landscape consists of isolated, high-volume data sources that lack a unified \"Source of Truth.\" The objective is to transition from static, manual reporting to a dynamic, real-time analytics environment to drive global go-to-market (GTM) decisions for a multi-billion dollar product portfolio.\n\n\nWe are looking for individual(s) to execute a two-stage digital transformation. While we are open to separate specialists for each stage, we prioritize a to establish the foundation first.\n\nDesign and implement a scalable data architecture, transitioning legacy data structures into a modern environment.\nBuild ETL/ELT pipelines to link disparate sources (e.g., SAP, Salesforce, and proprietary clinical data) into a unified model.\nStandardize data schemas to support complex commercial analytics across global regions.\n\nDevelop a suite of tailored to different organizational layers.\n* Executive-level \"storytelling\" views for leadership.\nOperational tools for Business Management.\nSpecific modules for Product Launches, Market Development, and Marketing ROI (Digital/Events).\n\nExpert-level proficiency in , , and Data Modeling.\nStrong understanding of data governance, specifically regarding the handling of sensitive healthcare/clinical data and ensuring compliance with global privacy standards. Proven track record in \"last mile\" data problems\u2014extracting value from legacy systems into actionable insights.\nHealthcare or MedTech experience is a strong nice-to-have (understanding of regulatory/HIPAA data environments).\nAbility to translate complex technical requirements for non-technical marketing stakeholders.\n ~6-month initial contract with opportunity for extension or  (Contract-to-Hire) transition.\nRemote friendly. No preference for geographical location.",
+    "location": "",
+    "time_posted": "18 minutes",
+    "status": "New Project",
+    "detected_at": "2026-03-02 23:17:34"
   }
 ]
