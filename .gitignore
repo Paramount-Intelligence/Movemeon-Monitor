@@ -4,7 +4,7 @@
 .env.local
 .env.*.local
 
-# Session files (cookies only - seen_projects.json is tracked)
+# Session files (cookies only - catalant_projects.db is tracked)
 catalant_cookies.json
 
 # Python

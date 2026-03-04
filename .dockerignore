@@ -1,0 +1,12 @@
+.env
+_.env
+.git
+.github
+.gitignore
+catalant_cookies.json
+**pycache**
+_.pyc
+\*.pyo
+script_clean_single.py
+setup_mongo.py
+README.md

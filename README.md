@@ -42,10 +42,11 @@ HEADLESS=False
 
 # File Paths
 COOKIES_FILE=catalant_cookies.json
-PROJECTS_DB=seen_projects.json
+PROJECTS_DB=catalant_projects.db
 ```
 
-**Note for Gmail users:** 
+**Note for Gmail users:**
+
 - Enable 2-Step Verification in your Google Account
 - Generate an App Password (Google Account > Security > App Passwords)
 - Use the App Password in `SENDER_PASSWORD`
@@ -98,6 +99,7 @@ python script_clean.py
 #### Quick Setup:
 
 1. **Push to GitHub:**
+
    ```bash
    git init
    git add .
@@ -227,20 +229,24 @@ Add these secrets (copy values from your `.env` file):
 ## Troubleshooting
 
 **No projects found:**
+
 - Check if you're logged in correctly
 - Verify the page structure hasn't changed
 - Run with `HEADLESS=False` to see browser
 
 **Email not sending:**
+
 - Verify SMTP credentials in `.env`
 - For Gmail, ensure App Password is used
 - Check firewall/antivirus settings
 
 **Session expires:**
+
 - Delete `catalant_cookies.json` to force fresh login
 - Check Catalant account status
 
 **GitHub Actions Issues:**
+
 - Check Actions logs for error messages
 - Verify all secrets are set correctly
 - Ensure repository Actions are enabled

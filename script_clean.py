@@ -3,6 +3,7 @@ import smtplib
 import json
 import os
 import re
+from pymongo import MongoClient, UpdateOne
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -28,11 +29,12 @@ class Config:
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
     SENDER_EMAIL = os.getenv("SENDER_EMAIL")
     SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
-    RECIPIENT_EMAILS = os.getenv("RECIPIENT_EMAILS", "").split(",")
-    CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 300))
+    RECIPIENT_EMAILS = [e.strip() for e in os.getenv("RECIPIENT_EMAILS", "ahmedghazi459@gmail.com,ahsanuddin3522@gmail.com,muhammad.abdullahds1@gmail.com").split(",") if e.strip()]
+    CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 60))
+    MAX_AGE_MINUTES = int(os.getenv("MAX_AGE_MINUTES", 60))
     HEADLESS = os.getenv("HEADLESS", "False").lower() == "true"
     COOKIES_FILE = os.getenv("COOKIES_FILE", "catalant_cookies.json")
-    PROJECTS_DB = os.getenv("PROJECTS_DB", "seen_projects.json")
+    MONGO_URI    = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 
 # ============================
 # SESSION MANAGEMENT
@@ -126,11 +128,11 @@ def extract_project_data(card):
         
         location = ""
         try:
-            loc_text = card.find_element(By.CSS_SELECTOR, ".text-gray-25.font-weight-semibold").text
-            location = loc_text.replace("Remote", "").strip()
+            loc_text = card.find_element(By.CSS_SELECTOR, ".text-gray-25.font-weight-semibold").text.strip()
+            location = loc_text if loc_text else ""
         except:
             pass
-        
+
         time_posted = "Unknown"
         try:
             time_elems = card.find_elements(By.XPATH, ".//div[contains(@class, 'small') and contains(@class, 'text-gray-20') and contains(@class, 'mt-1')]//span[contains(text(), 'Posted')]")
@@ -138,22 +140,65 @@ def extract_project_data(card):
                 time_posted = time_elems[0].text.replace("Posted", "").replace("ago", "").strip()
         except:
             pass
-        
+
+        # Optional: Budget
+        budget = ""
+        try:
+            budget = card.find_element(By.CSS_SELECTOR, ".need-card-inline-budget").text.strip()
+        except:
+            pass
+        if not budget:
+            try:
+                for el in card.find_elements(By.XPATH, ".//*[contains(text(),'$')]"):
+                    t = el.text.strip()
+                    if '$' in t and len(t) < 60:
+                        budget = t
+                        break
+            except:
+                pass
+
+        # Optional: Duration / Project Length
+        duration = ""
+        try:
+            duration = card.find_element(By.CSS_SELECTOR, ".need-card-inline-duration").text.strip()
+        except:
+            pass
+        if not duration:
+            try:
+                for el in card.find_elements(By.XPATH, ".//span[contains(@class,'text-gray') or contains(@class,'small')]"):
+                    t = el.text.strip()
+                    if any(w in t.lower() for w in ("week", "month", "day")) and 2 < len(t) < 40:
+                        duration = t
+                        break
+            except:
+                pass
+
         status = "Posted"
         try:
             card.find_element(By.CSS_SELECTOR, ".badge-success")
             status = "New Project"
         except:
             pass
-        
+
+        # Optional: Direct project URL
+        url = f"https://app.gocatalant.com/c/_/u/0/need/{project_id}/"
+        try:
+            link = card.find_element(By.CSS_SELECTOR, "a[href*='need']")
+            href = link.get_attribute("href") or ""
+            if href and "need" in href:
+                url = href
+        except:
+            pass
+
         return {
             "id": project_id,
             "title": title,
-            "categories": categories,
-            "description": description,
             "location": location,
+            "budget": budget,
+            "duration": duration,
             "time_posted": time_posted,
             "status": status,
+            "url": url,
             "detected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     except:
@@ -188,89 +233,191 @@ def scan_for_projects(driver):
         return []
 
 # ============================
-# PROJECT DATABASE
+# PROJECT DATABASE (MongoDB)
 # ============================
-def load_seen_projects():
-    """Load previously seen projects"""
-    if not os.path.exists(Config.PROJECTS_DB):
-        return []
-    try:
-        with open(Config.PROJECTS_DB, 'r') as f:
-            return json.load(f)
-    except:
-        return []
+_mongo_client = None
 
-def save_seen_projects(projects):
-    """Save projects to database"""
+def _get_collection():
+    """Return the MongoDB collection, reusing the client across calls."""
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = MongoClient(Config.MONGO_URI)
+    return _mongo_client["office_monitor"]["catalant_projects"]
+
+def init_db():
+    """Ensure a unique index on 'id' exists (no-op if already created by setup_mongo.py)."""
     try:
-        with open(Config.PROJECTS_DB, 'w') as f:
-            json.dump(projects, f, indent=2)
+        _get_collection().create_index("id", unique=True, name="idx_id_unique")
+    except Exception:
+        pass  # Index already exists — safe to ignore
+
+def db_is_cold_start():
+    """True if the collection has no documents (first ever run)."""
+    return _get_collection().find_one({}, {"_id": 1}) is None
+
+def get_seen_ids():
+    """Return set of all project IDs already in DB."""
+    try:
+        docs = _get_collection().find({}, {"id": 1, "_id": 0})
+        return {d["id"] for d in docs}
+    except Exception:
+        return set()
+
+def insert_project(project, emailed=True):
+    """Upsert one project record. Silently skips if ID already exists."""
+    try:
+        doc = {
+            "id":          project.get("id"),
+            "title":       project.get("title"),
+            "location":    project.get("location"),
+            "budget":      project.get("budget"),
+            "duration":    project.get("duration"),
+            "time_posted": project.get("time_posted"),
+            "status":      project.get("status"),
+            "url":         project.get("url"),
+            "detected_at": project.get("detected_at"),
+            "platform":    "catalant",
+            "emailed":     emailed,
+        }
+        _get_collection().update_one(
+            {"id": doc["id"]},
+            {"$setOnInsert": doc},
+            upsert=True,
+        )
     except Exception as e:
-        print(f"⚠️ Failed to save projects: {e}")
+        print(f"⚠️ DB insert failed: {e}")
 
-def filter_new_projects(all_projects, seen_projects):
-    """Filter out previously seen projects"""
-    seen_ids = {p.get("id") for p in seen_projects if p.get("id")}
-    return [p for p in all_projects if p.get("id") and p["id"] not in seen_ids]
+def bulk_insert_projects(projects, emailed=False):
+    """Upsert many projects at once (used for cold-start seeding)."""
+    try:
+        ops = []
+        for p in projects:
+            if not p.get("id"):
+                continue
+            doc = {
+                "id":          p.get("id"),
+                "title":       p.get("title"),
+                "location":    p.get("location"),
+                "budget":      p.get("budget"),
+                "duration":    p.get("duration"),
+                "time_posted": p.get("time_posted"),
+                "status":      p.get("status"),
+                "url":         p.get("url"),
+                "detected_at": p.get("detected_at"),
+                "platform":    "catalant",
+                "emailed":     emailed,
+            }
+            ops.append(UpdateOne({"id": doc["id"]}, {"$setOnInsert": doc}, upsert=True))
+        if ops:
+            result = _get_collection().bulk_write(ops, ordered=False)
+            print(f"  DB: inserted {result.upserted_count} records (emailed={'yes' if emailed else 'no'})")
+    except Exception as e:
+        print(f"⚠️ DB bulk insert failed: {e}")
+
+def parse_posted_minutes(time_str):
+    """Convert a scraped 'time_posted' string into minutes. Returns None if unparseable."""
+    if not time_str or time_str == "Unknown":
+        return None
+    s = time_str.lower().strip()
+    if any(w in s for w in ("just", "moment", "second")):
+        return 0
+    match = re.search(r'(\d+)\s*(minute|hour|day|week|month)', s)
+    if not match:
+        return None
+    val, unit = int(match.group(1)), match.group(2)
+    return val * {"minute": 1, "hour": 60, "day": 1440, "week": 10080, "month": 43200}[unit]
+
+
+def filter_new_projects(all_projects, seen_ids):
+    """Filter out already-seen IDs and jobs older than MAX_AGE_MINUTES."""
+    result = []
+    for p in all_projects:
+        if not p.get("id") or p["id"] in seen_ids:
+            continue
+        age = parse_posted_minutes(p.get("time_posted", ""))
+        if age is not None and age > Config.MAX_AGE_MINUTES:
+            print(f"  [SKIP - too old] {p['title'][:50]} (posted {p['time_posted']} ago)")
+            continue
+        result.append(p)
+    return result
 
 # ============================
 # EMAIL NOTIFICATIONS
 # ============================
 def create_email_html(project):
     """Create HTML email for a project"""
-    categories_html = ""
-    if project.get("categories"):
-        cats = "<br>".join([f"• {cat}" for cat in project["categories"]])
-        categories_html = f"<div style='margin: 10px 0;'><strong>📁 Categories:</strong><br>{cats}</div>"
-    
-    description = project.get("description", "No description available").replace("\n", "<br>")
-    
+    # ---- dynamic blocks ----
+    status        = project.get('status', 'Posted')
+    location      = project.get('location', '') or 'Remote / Not specified'
+    time_posted   = project.get('time_posted', 'Unknown')
+    budget        = project.get('budget', '')
+    duration      = project.get('duration', '')
+    detected_at   = project.get('detected_at', '')
+    project_id    = project.get('id', 'N/A')
+    title         = project.get('title', 'Untitled Project')
+    url           = project.get('url', 'https://app.gocatalant.com/c/_/u/0/dashboard/')
+
+    status_badge = "<span style='background:#e74c3c;color:white;padding:4px 10px;border-radius:3px;font-size:12px;font-weight:bold;'>🆕 New Project</span>" if status == 'New Project' else ""
+
+    budget_row   = f"<tr><td style='padding:6px 10px;color:#555;width:160px;'>💰 <strong>Budget</strong></td><td style='padding:6px 10px;color:#27ae60;font-weight:bold;'>{budget}</td></tr>" if budget else ""
+    duration_row = f"<tr><td style='padding:6px 10px;color:#555;'>⏱️ <strong>Duration</strong></td><td style='padding:6px 10px;'>{duration}</td></tr>" if duration else ""
+
     return f"""
     <!DOCTYPE html>
     <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
-            .header {{ background-color: #4CAF50; color: white; padding: 15px; border-radius: 5px 5px 0 0; }}
-            .content {{ padding: 20px; border: 1px solid #ddd; border-top: none; background-color: #fff; }}
-            .project-title {{ color: #2c3e50; margin-top: 0; }}
-            .badge {{ background-color: #e74c3c; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px; display: inline-block; margin-bottom: 10px; }}
-            .info-section {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }}
-            .description-section {{ background-color: #ffffff; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0; }}
-            .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; }}
-            .action-button {{ display: inline-block; background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 15px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin: 0;">🚀 New Project on Catalant</h2>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;color:#333;">
+        <div style="max-width:680px;margin:30px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#1a6b3c,#27ae60);padding:22px 28px;">
+                <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Catalant Project Monitor</p>
+                <h2 style="margin:6px 0 0;color:#fff;font-size:20px;">🚀 New Project Alert</h2>
             </div>
-            <div class="content">
-                <h3 class="project-title">{project.get('title', 'Untitled Project')}</h3>
-                {"<span class='badge'>New Project</span>" if project.get('status') == 'New Project' else ''}
-                
-                <div class="info-section">
-                    <p style="margin: 5px 0;"><strong>📍 Location:</strong> {project.get('location', 'Remote / Not specified')}</p>
-                    <p style="margin: 5px 0;"><strong>⏰ Posted:</strong> {project.get('time_posted', 'Unknown')} ago</p>
-                    <p style="margin: 5px 0;"><strong>🆔 Project ID:</strong> {project.get('id', 'N/A')}</p>
-                    <p style="margin: 5px 0;"><strong>🕒 Detected:</strong> {project.get('detected_at', '')}</p>
+
+            <!-- Body -->
+            <div style="padding:24px 28px;">
+
+                <!-- Title + badge -->
+                <h3 style="margin:0 0 10px;color:#1a252f;font-size:18px;line-height:1.4;">{title}</h3>
+                {status_badge}
+
+                <!-- Key info table -->
+                <div style="margin:18px 0;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        <tr style="background:#f8f9fa;">
+                            <td style="padding:6px 10px;color:#555;width:160px;">📍 <strong>Location</strong></td>
+                            <td style="padding:6px 10px;">{location}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px 10px;color:#555;">⏰ <strong>Posted</strong></td>
+                            <td style="padding:6px 10px;">{time_posted} ago</td>
+                        </tr>
+                        {budget_row}
+                        {duration_row}
+                        <tr style="background:#f8f9fa;">
+                            <td style="padding:6px 10px;color:#555;">🕒 <strong>Detected at</strong></td>
+                            <td style="padding:6px 10px;">{detected_at}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px 10px;color:#555;">🆔 <strong>Project ID</strong></td>
+                            <td style="padding:6px 10px;font-family:monospace;font-size:13px;color:#888;">{project_id}</td>
+                        </tr>
+                    </table>
                 </div>
-                
-                {categories_html}
-                
-                <div class="description-section">
-                    <h4 style="margin-top: 0;">📋 Project Description:</h4>
-                    <p style="white-space: pre-wrap;">{description}</p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="https://app.gocatalant.com/c/_/u/0/dashboard/" class="action-button">View on Catalant Dashboard</a>
+
+                <!-- CTA -->
+                <div style="text-align:center;margin-top:22px;">
+                    <a href="{url}"
+                       style="display:inline-block;background:#27ae60;color:#fff;padding:13px 32px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">
+                        View Project →
+                    </a>
                 </div>
             </div>
-            <div class="footer">
-                <p>Automated notification from Catalant Project Monitor</p>
+
+            <!-- Footer -->
+            <div style="background:#f8f9fa;padding:14px 28px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center;">
+                Catalant Project Monitor &nbsp;|&nbsp; Auto-notification &nbsp;|&nbsp; {detected_at}
             </div>
         </div>
     </body>
@@ -305,9 +452,11 @@ def initialize_driver():
     """Initialize Chrome WebDriver"""
     options = Options()
     if Config.HEADLESS:
-        options.add_argument("--headless")
+        options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
@@ -351,40 +500,69 @@ def main():
             print("❌ Failed to establish session")
             return
         
-        seen_projects = load_seen_projects()
-        print(f"📁 Loaded {len(seen_projects)} seen projects\n")
-        
+        cold_start = db_is_cold_start()
+        init_db()
+        seen_ids = get_seen_ids()
+        print(f"📁 DB loaded — {len(seen_ids)} projects on record\n")
+
+        # ── COLD START: seed silently, no emails ─────────────────────────────
+        if cold_start:
+            print("⚙️  First run — seeding existing projects silently (no emails sent)...")
+            seed_projects = scan_for_projects(driver)
+            if seed_projects:
+                bulk_insert_projects(seed_projects, emailed=False)
+                seen_ids = get_seen_ids()
+                print(f"✅ Seeded {len(seen_ids)} projects. Only NEW posts will trigger emails.\n")
+            else:
+                print("⚠️  Could not seed on first run — will retry next cycle.\n")
+        # ─────────────────────────────────────────────────────────────────────
+
         check_count = 0
         while True:
+          try:
             check_count += 1
             print(f"\n{'='*30}")
             print(f"🔄 Check #{check_count} - {datetime.now().strftime('%H:%M:%S')}")
             print(f"{'='*30}")
-            
+
             driver.refresh()
             time.sleep(5)
-            
+
             all_projects = scan_for_projects(driver)
-            
+
             if not all_projects:
                 print("⚠️ No projects found")
+                time.sleep(Config.CHECK_INTERVAL)
                 continue
-            
-            new_projects = filter_new_projects(all_projects, seen_projects)
-            
+
+            new_projects = filter_new_projects(all_projects, seen_ids)
+
             if new_projects:
                 print(f"🎯 Found {len(new_projects)} NEW project(s)!")
                 for project in new_projects:
                     print(f"  → {project['title'][:60]}...")
-                    send_notification(project)
-                    seen_projects.append(project)
-                save_seen_projects(seen_projects)
+                    emailed = send_notification(project)
+                    insert_project(project, emailed=emailed)
+                    seen_ids.add(project['id'])
             else:
                 print("⏳ No new projects")
-            
-            print(f"📊 Stats: {len(all_projects)} total, {len(seen_projects)} tracked")
-            print(f"\n⏳ Next check in {Config.CHECK_INTERVAL//60} minutes...")
+
+            print(f"📊 Stats: {len(all_projects)} visible, {len(seen_ids)} in DB")
+            print(f"\n⏳ Next check in {Config.CHECK_INTERVAL} seconds...")
             time.sleep(Config.CHECK_INTERVAL)
+
+        except KeyboardInterrupt:
+            raise
+        except Exception as loop_err:
+            print(f"⚠️ Check failed: {loop_err} — retrying in {Config.CHECK_INTERVAL}s...")
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            time.sleep(Config.CHECK_INTERVAL)
+            driver = initialize_driver()
+            if not setup_session(driver):
+                print("❌ Re-login failed — will retry next cycle")
             
     except KeyboardInterrupt:
         print("\n\n⏹️ Stopped by user")
