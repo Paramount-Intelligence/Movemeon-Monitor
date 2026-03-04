@@ -519,50 +519,50 @@ def main():
 
         check_count = 0
         while True:
-          try:
-            check_count += 1
-            print(f"\n{'='*30}")
-            print(f"🔄 Check #{check_count} - {datetime.now().strftime('%H:%M:%S')}")
-            print(f"{'='*30}")
-
-            driver.refresh()
-            time.sleep(5)
-
-            all_projects = scan_for_projects(driver)
-
-            if not all_projects:
-                print("⚠️ No projects found")
-                time.sleep(Config.CHECK_INTERVAL)
-                continue
-
-            new_projects = filter_new_projects(all_projects, seen_ids)
-
-            if new_projects:
-                print(f"🎯 Found {len(new_projects)} NEW project(s)!")
-                for project in new_projects:
-                    print(f"  → {project['title'][:60]}...")
-                    emailed = send_notification(project)
-                    insert_project(project, emailed=emailed)
-                    seen_ids.add(project['id'])
-            else:
-                print("⏳ No new projects")
-
-            print(f"📊 Stats: {len(all_projects)} visible, {len(seen_ids)} in DB")
-            print(f"\n⏳ Next check in {Config.CHECK_INTERVAL} seconds...")
-            time.sleep(Config.CHECK_INTERVAL)
-
-        except KeyboardInterrupt:
-            raise
-        except Exception as loop_err:
-            print(f"⚠️ Check failed: {loop_err} — retrying in {Config.CHECK_INTERVAL}s...")
             try:
-                driver.quit()
-            except Exception:
-                pass
-            time.sleep(Config.CHECK_INTERVAL)
-            driver = initialize_driver()
-            if not setup_session(driver):
-                print("❌ Re-login failed — will retry next cycle")
+                check_count += 1
+                print(f"\n{'='*30}")
+                print(f"🔄 Check #{check_count} - {datetime.now().strftime('%H:%M:%S')}")
+                print(f"{'='*30}")
+
+                driver.refresh()
+                time.sleep(5)
+
+                all_projects = scan_for_projects(driver)
+
+                if not all_projects:
+                    print("⚠️ No projects found")
+                    time.sleep(Config.CHECK_INTERVAL)
+                    continue
+
+                new_projects = filter_new_projects(all_projects, seen_ids)
+
+                if new_projects:
+                    print(f"🎯 Found {len(new_projects)} NEW project(s)!")
+                    for project in new_projects:
+                        print(f"  → {project['title'][:60]}...")
+                        emailed = send_notification(project)
+                        insert_project(project, emailed=emailed)
+                        seen_ids.add(project['id'])
+                else:
+                    print("⏳ No new projects")
+
+                print(f"📊 Stats: {len(all_projects)} visible, {len(seen_ids)} in DB")
+                print(f"\n⏳ Next check in {Config.CHECK_INTERVAL} seconds...")
+                time.sleep(Config.CHECK_INTERVAL)
+
+            except KeyboardInterrupt:
+                raise
+            except Exception as loop_err:
+                print(f"⚠️ Check failed: {loop_err} — retrying in {Config.CHECK_INTERVAL}s...")
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+                time.sleep(Config.CHECK_INTERVAL)
+                driver = initialize_driver()
+                if not setup_session(driver):
+                    print("❌ Re-login failed — will retry next cycle")
             
     except KeyboardInterrupt:
         print("\n\n⏹️ Stopped by user")
