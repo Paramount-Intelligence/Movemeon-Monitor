@@ -4,7 +4,9 @@ import json
 import os
 import re
 from pymongo import MongoClient, UpdateOne
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+PKT = timezone(timedelta(hours=5))  # Pakistan Standard Time (UTC+5)
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from selenium import webdriver
@@ -199,7 +201,7 @@ def extract_project_data(card):
             "time_posted": time_posted,
             "status": status,
             "url": url,
-            "detected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "detected_at": datetime.now(PKT).strftime("%Y-%m-%d %H:%M:%S")
         }
     except:
         return None
@@ -522,7 +524,7 @@ def main():
             try:
                 check_count += 1
                 print(f"\n{'='*30}")
-                print(f"🔄 Check #{check_count} - {datetime.now().strftime('%H:%M:%S')}")
+                print(f"🔄 Check #{check_count} - {datetime.now(PKT).strftime('%H:%M:%S')} PKT")
                 print(f"{'='*30}")
 
                 driver.refresh()
