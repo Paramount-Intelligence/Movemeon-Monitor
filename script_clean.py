@@ -86,7 +86,10 @@ def perform_login(driver):
         )
         
         save_cookies(driver)
-        print("✅ Login successful")
+        # Navigate to Search Projects page after login
+        driver.get(SEARCH_URL)
+        time.sleep(3)
+        print(f"✅ Login successful → {SEARCH_URL}")
         return True
     except Exception as e:
         print(f"❌ Login failed: {e}")
@@ -207,9 +210,9 @@ def extract_project_data(card):
         return None
 
 def scan_for_projects(driver):
-    """Scan dashboard for project cards - returns only valid projects"""
+    """Scan Search Projects page for project cards - returns only valid projects"""
     try:
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, ".need-card-inline-name"))
         )
         
@@ -466,16 +469,18 @@ def initialize_driver():
     })
     return driver
 
+SEARCH_URL = "https://app.gocatalant.com/c/_/u/0/search/?form_name=SearchForm&enable_pagination=True&enable_facets=True&card_action_show_need=True&use_recommended=y&display_result_count=True"
+
 def setup_session(driver):
     """Setup browser session with cookies or login"""
     if load_cookies(driver):
-        driver.get("https://app.gocatalant.com/c/_/u/0/dashboard/")
-        time.sleep(5)
+        driver.get(SEARCH_URL)
+        time.sleep(8)
         try:
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".need-card-inline-name"))
             )
-            print("✅ Logged in via cookies")
+            print(f"✅ Logged in via cookies → {SEARCH_URL}")
             return True
         except:
             pass
@@ -539,8 +544,8 @@ def main():
                 print(f"🔄 Check #{check_count} - {datetime.now(PKT).strftime('%H:%M:%S')} PKT")
                 print(f"{'='*30}")
 
-                driver.refresh()
-                time.sleep(5)
+                driver.get(SEARCH_URL)
+                time.sleep(8)
 
                 all_projects = scan_for_projects(driver)
 
