@@ -1,0 +1,30 @@
+[phases.setup]
+aptPkgs = [
+    "wget",
+    "ca-certificates",
+    "fonts-liberation",
+    "libatk-bridge2.0-0",
+    "libatk1.0-0",
+    "libcairo2",
+    "libcups2",
+    "libdbus-1-3",
+    "libgtk-3-0",
+    "libnspr4",
+    "libnss3",
+    "libpango-1.0-0",
+    "libx11-6",
+    "libxcomposite1",
+    "libxdamage1",
+    "libxext6",
+    "libxfixes3",
+    "libxrandr2",
+    "xdg-utils"
+]
+
+[phases.chrome]
+dependsOn = ["setup"]
+cmds = [
+    "wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb",
+    "apt-get install -y /tmp/chrome.deb --no-install-recommends",
+    "rm /tmp/chrome.deb"
+]
