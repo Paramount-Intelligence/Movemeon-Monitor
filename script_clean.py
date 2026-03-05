@@ -503,20 +503,30 @@ def main():
         seen_ids = get_seen_ids()
         print(f"📁 DB loaded — {len(seen_ids)} projects on record\n")
 
-        # ── STARTUP RECONCILIATION: seed recent projects silently ────────────
-        # Seeds only jobs posted within the last 12 hours as "already known".
-        # Any truly new job appearing after startup will trigger an email.
+        # ── STARTUP RECONCILIATION ───────────────────────────────────────────
+        # Jobs ≤12h old  → insert to DB silently (no email)
+        # Jobs  >12h old → add to seen_ids in-memory only (no DB insert, no email)
+        # This ensures NOTHING currently on the page ever triggers an email.
+        # Only jobs that appear AFTER this startup scan will be emailed.
         SEED_MAX_AGE_MINUTES = 720  # 12 hours
         label = "First run" if cold_start else "Restart"
-        print(f"⚙️  {label} — reconciling recent projects silently (no emails sent)...")
+        print(f"⚙️  {label} — reconciling current page silently (no emails sent)...")
         seed_projects = scan_for_projects(driver)
         if seed_projects:
-            recent = [p for p in seed_projects
-                      if parse_posted_minutes(p.get("time_posted", "")) is None
-                      or parse_posted_minutes(p.get("time_posted", "")) <= SEED_MAX_AGE_MINUTES]
+            recent, old = [], []
+            for p in seed_projects:
+                age = parse_posted_minutes(p.get("time_posted", ""))
+                if age is None or age <= SEED_MAX_AGE_MINUTES:
+                    recent.append(p)
+                else:
+                    old.append(p)
             bulk_insert_projects(recent, emailed=False)
             seen_ids = get_seen_ids()
-            print(f"✅ Reconciled — {len(seen_ids)} projects on record (seeded {len(recent)} recent). Only NEW posts will trigger emails.\n")
+            # Also mark old jobs as seen in-memory so they never trigger an email
+            for p in old:
+                if p.get("id"):
+                    seen_ids.add(p["id"])
+            print(f"✅ Reconciled — {len(recent)} recent (saved to DB), {len(old)} old (ignored). Only NEW posts will trigger emails.\n")
         else:
             print("⚠️  Could not reconcile on startup — will retry next cycle.\n")
         # ─────────────────────────────────────────────────────────────────────
