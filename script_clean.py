@@ -202,6 +202,7 @@ def extract_project_data(card):
         return {
             "id": project_id,
             "title": title,
+            "description": description,
             "location": location,
             "budget": budget,
             "duration": duration,
@@ -274,17 +275,24 @@ def insert_project(project, emailed=True):
     """Upsert one project record. Silently skips if ID already exists."""
     try:
         doc = {
-            "id":          project.get("id"),
-            "title":       project.get("title"),
-            "location":    project.get("location"),
-            "budget":      project.get("budget"),
-            "duration":    project.get("duration"),
-            "time_posted": project.get("time_posted"),
-            "status":      project.get("status"),
-            "url":         project.get("url"),
-            "detected_at": project.get("detected_at"),
-            "platform":    "catalant",
-            "emailed":     emailed,
+            "id":           project.get("id"),
+            "title":        project.get("title"),
+            "description":  project.get("description"),
+            "location":     project.get("location"),
+            "budget":       project.get("budget"),
+            "duration":     project.get("duration"),
+            "start_date":   project.get("start_date"),
+            "project_length": project.get("project_length"),
+            "location_pref":  project.get("location_pref"),
+            "level_of_support": project.get("level_of_support"),
+            "industry":     project.get("industry"),
+            "contracting":  project.get("contracting"),
+            "time_posted":  project.get("time_posted"),
+            "status":       project.get("status"),
+            "url":          project.get("url"),
+            "detected_at":  project.get("detected_at"),
+            "platform":     "catalant",
+            "emailed":      emailed,
         }
         _get_collection().update_one(
             {"id": doc["id"]},
@@ -302,17 +310,18 @@ def bulk_insert_projects(projects, emailed=False):
             if not p.get("id"):
                 continue
             doc = {
-                "id":          p.get("id"),
-                "title":       p.get("title"),
-                "location":    p.get("location"),
-                "budget":      p.get("budget"),
-                "duration":    p.get("duration"),
-                "time_posted": p.get("time_posted"),
-                "status":      p.get("status"),
-                "url":         p.get("url"),
-                "detected_at": p.get("detected_at"),
-                "platform":    "catalant",
-                "emailed":     emailed,
+                "id":           p.get("id"),
+                "title":        p.get("title"),
+                "description":  p.get("description"),
+                "location":     p.get("location"),
+                "budget":       p.get("budget"),
+                "duration":     p.get("duration"),
+                "time_posted":  p.get("time_posted"),
+                "status":       p.get("status"),
+                "url":          p.get("url"),
+                "detected_at":  p.get("detected_at"),
+                "platform":     "catalant",
+                "emailed":      emailed,
             }
             ops.append(UpdateOne({"id": doc["id"]}, {"$setOnInsert": doc}, upsert=True))
         if ops:
@@ -345,87 +354,202 @@ def filter_new_projects(all_projects, seen_ids):
     return result
 
 # ============================
+# DETAIL PAGE FETCH
+# ============================
+def fetch_project_details(driver, url):
+    """Navigate to a Catalant project detail page and extract full information."""
+    details = {}
+    try:
+        driver.get(url)
+        time.sleep(4)
+
+        # Try CSS selectors for full description
+        for sel in [".need-description", ".description-body", "[class*='description-body']",
+                    ".need-detail-description", ".project-description", "[class*='need-description']"]:
+            try:
+                el = driver.find_element(By.CSS_SELECTOR, sel)
+                t = el.text.strip()
+                if len(t) > 50:
+                    details["description"] = t
+                    break
+            except Exception:
+                pass
+
+        body_text = driver.find_element(By.TAG_NAME, "body").text
+
+        # Fallback: extract description from body text between section headers
+        if not details.get("description"):
+            m = re.search(
+                r'(?:Summary\s*\n+)?Description\s*\n([\s\S]+?)(?=\n(?:Project Logistics|Budget|Expert Preferences|Contracting)|\Z)',
+                body_text, re.IGNORECASE
+            )
+            if m:
+                txt = m.group(1).strip()
+                if len(txt) > 30:
+                    details["description"] = txt
+
+        # Extract structured fields
+        patterns = {
+            "start_date":       r'Start Date\s*\n([^\n]{2,80})',
+            "project_length":   r'Expected Project Length\s*\n([^\n]{2,80})',
+            "location_pref":    r'Location Preference\s*\n([^\n]{2,100})',
+            "level_of_support": r'Level of Support\s*\n([^\n]{2,60})',
+            "industry":         r'Desired Industry Background\s*\n([^\n]{2,100})',
+            "contracting":      r'Contracting Process\s*\n([^\n]{2,60})',
+            "detail_budget":    r'Project Budget\s*\n([^\n]{2,60})',
+        }
+        for field, pattern in patterns.items():
+            m = re.search(pattern, body_text, re.IGNORECASE)
+            if m:
+                val = m.group(1).strip()
+                if val:
+                    details[field] = val
+    except Exception as e:
+        print(f"  ⚠️ Detail fetch failed: {e}")
+    return details
+
+
+# ============================
 # EMAIL NOTIFICATIONS
 # ============================
+def _esc(text):
+    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _section_header(icon, title, color):
+    return (
+        f'<tr><td colspan="2" style="padding:14px 16px 6px;background:{color};'
+        f'color:#fff;font-size:12px;font-weight:bold;'
+        f'text-transform:uppercase;letter-spacing:1px;">'
+        f'{icon}&nbsp; {title}</td></tr>'
+    )
+
+
+def _row(label, value, alt=False, bold_value=False):
+    if not value:
+        return ""
+    bg   = "background:#f8f9fa;" if alt else "background:#fff;"
+    bold = "font-weight:bold;" if bold_value else ""
+    return (
+        f"<tr>"
+        f"<td style='padding:9px 16px;color:#555;width:200px;{bg}border-bottom:1px solid #eee;'>"
+        f"<strong>{_esc(label)}</strong></td>"
+        f"<td style='padding:9px 16px;{bg}{bold}border-bottom:1px solid #eee;'>{_esc(str(value))}</td>"
+        f"</tr>"
+    )
+
+
 def create_email_html(project):
-    """Create HTML email for a project"""
-    # ---- dynamic blocks ----
-    status        = project.get('status', 'Posted')
-    location      = project.get('location', '') or 'Remote / Not specified'
-    time_posted   = project.get('time_posted', 'Unknown')
-    budget        = project.get('budget', '')
-    duration      = project.get('duration', '')
-    detected_at   = project.get('detected_at', '')
-    project_id    = project.get('id', 'N/A')
     title         = project.get('title', 'Untitled Project')
     url           = project.get('url', 'https://app.gocatalant.com/c/_/u/0/dashboard/')
+    time_posted   = project.get('time_posted', '')
+    status        = project.get('status', '')
+    detected_at   = project.get('detected_at', '')
+    project_id    = project.get('id', '')
+    description   = project.get('description', '')
+    start_date    = project.get('start_date', '')
+    proj_length   = project.get('project_length', '') or project.get('duration', '')
+    location_pref = project.get('location_pref', '') or project.get('location', '')
+    contracting   = project.get('contracting', '')
+    budget        = project.get('budget', '') or project.get('detail_budget', '') or 'Not provided'
+    support_level = project.get('level_of_support', '')
+    industry      = project.get('industry', '')
 
-    status_badge = "<span style='background:#e74c3c;color:white;padding:4px 10px;border-radius:3px;font-size:12px;font-weight:bold;'>🆕 New Project</span>" if status == 'New Project' else ""
+    hdr_grad   = "linear-gradient(135deg,#1a6b3c,#27ae60)"
+    sec_desc   = "#1a6b3c"
+    sec_logist = "#166534"
+    sec_budget = "#1d4ed8"
+    sec_expert = "#7c3aed"
+    btn_color  = "#27ae60"
 
-    budget_row   = f"<tr><td style='padding:6px 10px;color:#555;width:160px;'>💰 <strong>Budget</strong></td><td style='padding:6px 10px;color:#27ae60;font-weight:bold;'>{budget}</td></tr>" if budget else ""
-    duration_row = f"<tr><td style='padding:6px 10px;color:#555;'>⏱️ <strong>Duration</strong></td><td style='padding:6px 10px;'>{duration}</td></tr>" if duration else ""
+    badge = ""
+    if status == "New Project":
+        badge = ("<span style='display:inline-block;background:#e74c3c;color:#fff;"
+                 "padding:4px 12px;border-radius:3px;font-size:12px;font-weight:bold;"
+                 "margin-bottom:12px;'>🆕 New Project</span>")
 
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif;color:#333;">
-        <div style="max-width:680px;margin:30px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+    desc_html = ""
+    if description:
+        paragraphs = _esc(description).replace("\n\n", "|||").replace("\n", " ")
+        paras = [f"<p style='margin:0 0 10px;'>{p}</p>" for p in paragraphs.split("|||")]
+        desc_html = "".join(paras)
 
-            <!-- Header -->
-            <div style="background:linear-gradient(135deg,#1a6b3c,#27ae60);padding:22px 28px;">
-                <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Catalant Project Monitor</p>
-                <h2 style="margin:6px 0 0;color:#fff;font-size:20px;">🚀 New Project Alert</h2>
-            </div>
+    desc_section = ""
+    if desc_html:
+        desc_section = (
+            _section_header('📋', 'Description', sec_desc) +
+            f"<tr><td colspan='2' style='padding:14px 16px;background:#f9fafb;"
+            f"font-size:14px;line-height:1.75;color:#333;border-bottom:2px solid #e5e7eb;'>"
+            f"{desc_html}</td></tr>"
+        )
 
-            <!-- Body -->
-            <div style="padding:24px 28px;">
+    logistics_rows = (
+        _row("Start Date",              start_date or "TBD",              alt=False) +
+        _row("Expected Project Length", proj_length or "Not specified",   alt=True) +
+        _row("Location Preference",     location_pref or "Not specified", alt=False) +
+        _row("Contracting Process",     contracting or "Standard",        alt=True)
+    )
+    logistics_section = _section_header('📦', 'Project Logistics', sec_logist) + logistics_rows
 
-                <!-- Title + badge -->
-                <h3 style="margin:0 0 10px;color:#1a252f;font-size:18px;line-height:1.4;">{title}</h3>
-                {status_badge}
+    budget_section = (
+        _section_header('💰', 'Budget', sec_budget) +
+        _row("Project Budget", budget, bold_value=bool(project.get('budget')))
+    )
 
-                <!-- Key info table -->
-                <div style="margin:18px 0;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                        <tr style="background:#f8f9fa;">
-                            <td style="padding:6px 10px;color:#555;width:160px;">📍 <strong>Location</strong></td>
-                            <td style="padding:6px 10px;">{location}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:6px 10px;color:#555;">⏰ <strong>Posted</strong></td>
-                            <td style="padding:6px 10px;">{time_posted} ago</td>
-                        </tr>
-                        {budget_row}
-                        {duration_row}
-                        <tr style="background:#f8f9fa;">
-                            <td style="padding:6px 10px;color:#555;">🕒 <strong>Detected at</strong></td>
-                            <td style="padding:6px 10px;">{detected_at}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:6px 10px;color:#555;">🆔 <strong>Project ID</strong></td>
-                            <td style="padding:6px 10px;font-family:monospace;font-size:13px;color:#888;">{project_id}</td>
-                        </tr>
-                    </table>
-                </div>
+    expert_rows = (
+        _row("Level of Support",            support_level or "Not specified", alt=False) +
+        _row("Desired Industry Background", industry      or "Not specified", alt=True)
+    )
+    expert_section = _section_header('👤', 'Expert Preferences', sec_expert) + expert_rows
 
-                <!-- CTA -->
-                <div style="text-align:center;margin-top:22px;">
-                    <a href="{url}"
-                       style="display:inline-block;background:#27ae60;color:#fff;padding:13px 32px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">
-                        View Project →
-                    </a>
-                </div>
-            </div>
+    meta_rows = (
+        _row("Posted",      f"{time_posted} ago" if time_posted and time_posted != "Unknown" else "—", alt=False) +
+        _row("Detected at", detected_at, alt=True) +
+        _row("Project ID",  project_id, alt=False)
+    )
 
-            <!-- Footer -->
-            <div style="background:#f8f9fa;padding:14px 28px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center;">
-                Catalant Project Monitor &nbsp;|&nbsp; Auto-notification &nbsp;|&nbsp; {detected_at}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;color:#333;">
+  <div style="max-width:700px;margin:30px auto;background:#fff;border-radius:10px;
+       overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.12);">
+
+    <div style="background:{hdr_grad};padding:24px 28px;">
+      <p style="margin:0;color:rgba(255,255,255,0.75);font-size:11px;
+          letter-spacing:1.5px;text-transform:uppercase;">Catalant Project Monitor</p>
+      <h2 style="margin:6px 0 0;color:#fff;font-size:24px;font-weight:700;">🚀 New Project Alert</h2>
+    </div>
+
+    <div style="padding:22px 28px 4px;">
+      <h3 style="margin:0 0 10px;color:#1a252f;font-size:20px;line-height:1.4;">{_esc(title)}</h3>
+      {badge}
+    </div>
+
+    <div style="padding:0 28px 28px;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;
+             border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        {desc_section}
+        {logistics_section}
+        {budget_section}
+        {expert_section}
+        {_section_header('🕒', 'Detection Info', '#6b7280')}
+        {meta_rows}
+      </table>
+      <div style="text-align:center;margin-top:28px;">
+        <a href="{url}" style="display:inline-block;background:{btn_color};color:#fff;
+                  padding:14px 36px;text-decoration:none;border-radius:6px;
+                  font-weight:bold;font-size:15px;letter-spacing:0.3px;">
+          View Full Project on Catalant →
+        </a>
+      </div>
+    </div>
+
+    <div style="background:#f8f9fa;padding:14px 28px;border-top:1px solid #eee;
+         font-size:12px;color:#999;text-align:center;">
+      Catalant Project Monitor &nbsp;|&nbsp; Automated alert &nbsp;|&nbsp; {detected_at}
+    </div>
+  </div>
+</body></html>"""
 
 def send_notification(project):
     """Send email notification for a new project"""
@@ -567,6 +691,9 @@ def main():
                     print(f"🎯 Found {len(new_projects)} NEW project(s)!")
                     for project in new_projects:
                         print(f"  → {project['title'][:60]}...")
+                        print(f"     Fetching full project details...")
+                        details = fetch_project_details(driver, project['url'])
+                        project.update(details)
                         emailed = send_notification(project)
                         insert_project(project, emailed=emailed)
                         seen_ids.add(project['id'])
