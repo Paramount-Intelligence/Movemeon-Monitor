@@ -331,14 +331,10 @@ def parse_posted_minutes(time_str):
 
 
 def filter_new_projects(all_projects, seen_ids):
-    """Filter out already-seen IDs and jobs older than MAX_AGE_MINUTES."""
+    """Filter out already-seen IDs."""
     result = []
     for p in all_projects:
         if not p.get("id") or p["id"] in seen_ids:
-            continue
-        age = parse_posted_minutes(p.get("time_posted", ""))
-        if age is not None and age > Config.MAX_AGE_MINUTES:
-            print(f"  [SKIP - too old] {p['title'][:50]} (posted {p['time_posted']} ago)")
             continue
         result.append(p)
     return result
