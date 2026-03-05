@@ -1,8 +1,13 @@
+import sys
 import time
 import smtplib
 import json
 import os
 import re
+
+# Ensure UTF-8 output on all platforms (fixes Windows emoji crash)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from pymongo import MongoClient, UpdateOne
 from datetime import datetime, timezone, timedelta
 
@@ -87,9 +92,8 @@ def perform_login(driver):
         
         save_cookies(driver)
         # Navigate to Search Projects page after login
-        driver.get(SEARCH_URL)
-        time.sleep(3)
-        print(f"✅ Login successful → {SEARCH_URL}")
+        _navigate_to_search(driver)
+        print("Login successful -> Search Projects")
         return True
     except Exception as e:
         print(f"❌ Login failed: {e}")
@@ -216,11 +220,9 @@ def scan_for_projects(driver):
             EC.presence_of_element_located((By.CSS_SELECTOR, ".need-card-inline-name"))
         )
         
-        # Get all card blocks
+        # Get all card blocks that contain a project title
         all_cards = driver.find_elements(By.CSS_SELECTOR, "div.card-block")
-        
-        # Filter to only those with project content
-        project_cards = [c for c in all_cards if c.find_elements(By.CSS_SELECTOR, ".need-card-inline")]
+        project_cards = [c for c in all_cards if c.find_elements(By.CSS_SELECTOR, ".need-card-inline-name")]
         
         projects = []
         for card in project_cards:
@@ -469,22 +471,28 @@ def initialize_driver():
     })
     return driver
 
+DASHBOARD_URL = "https://app.gocatalant.com/c/_/u/0/dashboard/"
 SEARCH_URL = "https://app.gocatalant.com/c/_/u/0/search/?form_name=SearchForm&enable_pagination=True&enable_facets=True&card_action_show_need=True&use_recommended=y&display_result_count=True"
+
+def _navigate_to_search(driver):
+    """Navigate to Search Projects page. Loads dashboard first so the AJAX session is active."""
+    driver.get(DASHBOARD_URL)
+    time.sleep(4)
+    driver.get(SEARCH_URL)
+    time.sleep(8)
 
 def setup_session(driver):
     """Setup browser session with cookies or login"""
     if load_cookies(driver):
-        driver.get(SEARCH_URL)
-        time.sleep(8)
+        _navigate_to_search(driver)
         try:
-            WebDriverWait(driver, 15).until(
+            WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".need-card-inline-name"))
             )
-            print(f"✅ Logged in via cookies → {SEARCH_URL}")
+            print("Logged in via cookies -> Search Projects")
             return True
         except:
             pass
-    
     return perform_login(driver)
 
 # ============================
@@ -544,8 +552,7 @@ def main():
                 print(f"🔄 Check #{check_count} - {datetime.now(PKT).strftime('%H:%M:%S')} PKT")
                 print(f"{'='*30}")
 
-                driver.get(SEARCH_URL)
-                time.sleep(8)
+                _navigate_to_search(driver)
 
                 all_projects = scan_for_projects(driver)
 
@@ -581,7 +588,7 @@ def main():
                 time.sleep(Config.CHECK_INTERVAL)
                 driver = initialize_driver()
                 if not setup_session(driver):
-                    print("❌ Re-login failed — will retry next cycle")
+                    print("Re-login failed -- will retry next cycle")
             
     except KeyboardInterrupt:
         print("\n\n⏹️ Stopped by user")
