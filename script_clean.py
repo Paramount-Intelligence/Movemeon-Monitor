@@ -18,6 +18,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Startup diagnostics
+print(f"[ENV] MONGO_URI set: {bool(os.getenv('MONGO_URI'))}")
+print(f"[ENV] MONGO_URI prefix: {str(os.getenv('MONGO_URI', ''))[:20]!r}")
+
 # ============================
 # CONFIGURATION
 # ============================
