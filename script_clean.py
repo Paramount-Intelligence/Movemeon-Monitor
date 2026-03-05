@@ -376,6 +376,8 @@ def fetch_project_details(driver, url):
                 pass
 
         body_text = driver.find_element(By.TAG_NAME, "body").text
+        # Normalize non-breaking spaces and Windows line endings
+        body_text = body_text.replace('\u00a0', ' ').replace('\r\n', '\n').replace('\r', '\n')
 
         # Fallback: extract description from body text between section headers
         if not details.get("description"):
@@ -388,15 +390,19 @@ def fetch_project_details(driver, url):
                 if len(txt) > 30:
                     details["description"] = txt
 
-        # Extract structured fields
+        # Extract structured fields.
+        # _SEP matches label→value separator in two formats:
+        #   • same-line: "Start Date    Mar 16, 2026"  (spaces/tabs only)
+        #   • next-line:  "Start Date\nMar 16, 2026"   (newline, optional blank lines)
+        _SEP = r'(?:[ \t]+|[ \t]*\n(?:[ \t]*\n)*[ \t]*)'
         patterns = {
-            "start_date":       r'Start Date\s*\n([^\n]{2,80})',
-            "project_length":   r'Expected Project Length\s*\n([^\n]{2,80})',
-            "location_pref":    r'Location Preference\s*\n([^\n]{2,100})',
-            "level_of_support": r'Level of Support\s*\n([^\n]{2,60})',
-            "industry":         r'Desired Industry Background\s*\n([^\n]{2,100})',
-            "contracting":      r'Contracting Process\s*\n([^\n]{2,60})',
-            "detail_budget":    r'Project Budget\s*\n([^\n]{2,60})',
+            "start_date":       rf'Start Date{_SEP}([^\n]{{2,80}})',
+            "project_length":   rf'Expected Project Length{_SEP}([^\n]{{2,80}})',
+            "location_pref":    rf'Location Preference{_SEP}([^\n]{{2,100}})',
+            "level_of_support": rf'Level of Support{_SEP}([^\n]{{2,60}})',
+            "industry":         rf'Desired Industry Background{_SEP}([^\n]{{2,100}})',
+            "contracting":      rf'Contracting Process{_SEP}([^\n]{{2,60}})',
+            "detail_budget":    rf'Project Budget{_SEP}([^\n]{{2,60}})',
         }
         for field, pattern in patterns.items():
             m = re.search(pattern, body_text, re.IGNORECASE)
