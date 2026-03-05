@@ -361,7 +361,16 @@ def fetch_project_details(driver, url):
     details = {}
     try:
         driver.get(url)
-        time.sleep(4)
+
+        # Wait for the structured fields to appear (JS-heavy SPA needs time)
+        try:
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH,
+                    "//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'contracting')]"
+                ))
+            )
+        except TimeoutException:
+            time.sleep(8)
 
         # Try CSS selectors for full description
         for sel in [".need-description", ".description-body", "[class*='description-body']",
@@ -382,7 +391,7 @@ def fetch_project_details(driver, url):
         # Fallback: extract description from body text between section headers
         if not details.get("description"):
             m = re.search(
-                r'(?:Summary\s*\n+)?Description\s*\n([\s\S]+?)(?=\n(?:Project Logistics|Budget|Expert Preferences|Contracting)|\Z)',
+                r'(?:Summary\s*\n+)?Description\s*\n([\s\S]+?)(?=\n(?:Project Logistics|Budget|Expert Preferences|Contracting|Other Details)|\Z)',
                 body_text, re.IGNORECASE
             )
             if m:
@@ -390,26 +399,43 @@ def fetch_project_details(driver, url):
                 if len(txt) > 30:
                     details["description"] = txt
 
-        # Extract structured fields.
-        # _SEP matches label→value separator in two formats:
-        #   • same-line: "Start Date    Mar 16, 2026"  (spaces/tabs only)
-        #   • next-line:  "Start Date\nMar 16, 2026"   (newline, optional blank lines)
-        _SEP = r'(?:[ \t]+|[ \t]*\n(?:[ \t]*\n)*[ \t]*)'
-        patterns = {
-            "start_date":       rf'Start Date{_SEP}([^\n]{{2,80}})',
-            "project_length":   rf'Expected Project Length{_SEP}([^\n]{{2,80}})',
-            "location_pref":    rf'Location Preference{_SEP}([^\n]{{2,100}})',
-            "level_of_support": rf'Level of Support{_SEP}([^\n]{{2,60}})',
-            "industry":         rf'Desired Industry Background{_SEP}([^\n]{{2,100}})',
-            "contracting":      rf'Contracting Process{_SEP}([^\n]{{2,60}})',
-            "detail_budget":    rf'Project Budget{_SEP}([^\n]{{2,60}})',
-        }
-        for field, pattern in patterns.items():
-            m = re.search(pattern, body_text, re.IGNORECASE)
+        # ── Inline "Label: Value" extraction ─────────────────────────────────
+        # The detail page renders all fields as "Label: Value" on a single line.
+        inline_patterns = [
+            ("start_date",       r'Start Date:\s*(.+)'),
+            ("project_length",   r'Timeline:\s*(.+)'),          # page uses "Timeline"
+            ("level_of_support", r'(?:Expert Type|Level of Support):\s*(.+)|^(Independent Expert|Open to Both|Consulting Firm|Both)$'),
+            ("industry",         r'Industry:\s*(.+)'),           # page uses "Industry"
+            ("contracting",      r'Contracting Process:\s*(.+)'),
+        ]
+        for field, pattern in inline_patterns:
+            if details.get(field):
+                continue
+            m = re.search(pattern, body_text, re.IGNORECASE | re.MULTILINE)
+            if m:
+                # Handle alternation groups — pick first non-None group
+                val = next((g for g in m.groups() if g), None) if m.groups() else m.group(0)
+                if val:
+                    val = val.strip()
+                    if val:
+                        details[field] = val
+
+        # Location: two "Location:" lines exist — description prose (first) and
+        # the structured sidebar (last). Always take the LAST occurrence.
+        if not details.get("location_pref"):
+            matches = re.findall(r'^Location:\s*(.+)', body_text, re.IGNORECASE | re.MULTILINE)
+            if matches:
+                details["location_pref"] = matches[-1].strip()
+
+        # Budget: "Project Budget:\n<value>" — value is on the NEXT line.
+        # Use [ \t]* (not \s*) before \n to avoid eating the newline itself.
+        if not details.get("detail_budget"):
+            m = re.search(r'Project Budget:[ \t]*\n[ \t]*(.+)', body_text, re.IGNORECASE)
             if m:
                 val = m.group(1).strip()
-                if val:
-                    details[field] = val
+                if val and val.lower() != "not provided":
+                    details["detail_budget"] = val
+
     except Exception as e:
         print(f"  ⚠️ Detail fetch failed: {e}")
     return details
