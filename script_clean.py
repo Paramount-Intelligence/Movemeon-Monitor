@@ -503,16 +503,18 @@ def main():
         seen_ids = get_seen_ids()
         print(f"📁 DB loaded — {len(seen_ids)} projects on record\n")
 
-        # ── COLD START: seed silently, no emails ─────────────────────────────
-        if cold_start:
-            print("⚙️  First run — seeding existing projects silently (no emails sent)...")
-            seed_projects = scan_for_projects(driver)
-            if seed_projects:
-                bulk_insert_projects(seed_projects, emailed=False)
-                seen_ids = get_seen_ids()
-                print(f"✅ Seeded {len(seen_ids)} projects. Only NEW posts will trigger emails.\n")
-            else:
-                print("⚠️  Could not seed on first run — will retry next cycle.\n")
+        # ── STARTUP RECONCILIATION: seed any unseen projects silently ────────
+        # Runs on every startup (cold or warm) to catch projects that were
+        # never saved (e.g. previously filtered by old MAX_AGE logic).
+        label = "First run" if cold_start else "Restart"
+        print(f"⚙️  {label} — reconciling existing projects silently (no emails sent)...")
+        seed_projects = scan_for_projects(driver)
+        if seed_projects:
+            bulk_insert_projects(seed_projects, emailed=False)
+            seen_ids = get_seen_ids()
+            print(f"✅ Reconciled — {len(seen_ids)} projects on record. Only NEW posts will trigger emails.\n")
+        else:
+            print("⚠️  Could not reconcile on startup — will retry next cycle.\n")
         # ─────────────────────────────────────────────────────────────────────
 
         check_count = 0
