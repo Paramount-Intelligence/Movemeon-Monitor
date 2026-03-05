@@ -503,16 +503,20 @@ def main():
         seen_ids = get_seen_ids()
         print(f"📁 DB loaded — {len(seen_ids)} projects on record\n")
 
-        # ── STARTUP RECONCILIATION: seed any unseen projects silently ────────
-        # Runs on every startup (cold or warm) to catch projects that were
-        # never saved (e.g. previously filtered by old MAX_AGE logic).
+        # ── STARTUP RECONCILIATION: seed recent projects silently ────────────
+        # Seeds only jobs posted within the last 12 hours as "already known".
+        # Any truly new job appearing after startup will trigger an email.
+        SEED_MAX_AGE_MINUTES = 720  # 12 hours
         label = "First run" if cold_start else "Restart"
-        print(f"⚙️  {label} — reconciling existing projects silently (no emails sent)...")
+        print(f"⚙️  {label} — reconciling recent projects silently (no emails sent)...")
         seed_projects = scan_for_projects(driver)
         if seed_projects:
-            bulk_insert_projects(seed_projects, emailed=False)
+            recent = [p for p in seed_projects
+                      if parse_posted_minutes(p.get("time_posted", "")) is None
+                      or parse_posted_minutes(p.get("time_posted", "")) <= SEED_MAX_AGE_MINUTES]
+            bulk_insert_projects(recent, emailed=False)
             seen_ids = get_seen_ids()
-            print(f"✅ Reconciled — {len(seen_ids)} projects on record. Only NEW posts will trigger emails.\n")
+            print(f"✅ Reconciled — {len(seen_ids)} projects on record (seeded {len(recent)} recent). Only NEW posts will trigger emails.\n")
         else:
             print("⚠️  Could not reconcile on startup — will retry next cycle.\n")
         # ─────────────────────────────────────────────────────────────────────
