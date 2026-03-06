@@ -1,7 +1,7 @@
 [phases.setup]
 aptPkgs = [
-    "wget",
-    "ca-certificates",
+    "chromium",
+    "chromium-driver",
     "fonts-liberation",
     "libatk-bridge2.0-0",
     "libatk1.0-0",
@@ -21,10 +21,6 @@ aptPkgs = [
     "xdg-utils"
 ]
 
-[phases.chrome]
-dependsOn = ["setup"]
-cmds = [
-    "wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb",
-    "apt-get install -y /tmp/chrome.deb --no-install-recommends",
-    "rm /tmp/chrome.deb"
-]
+[variables]
+CHROME_BIN = "/usr/bin/chromium"
+CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
