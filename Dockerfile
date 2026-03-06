@@ -35,6 +35,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-cache the chromedriver so the first run doesn't need to download it
+RUN python -c "\
+from webdriver_manager.chrome import ChromeDriverManager; \
+from webdriver_manager.core.os_manager import ChromeType; \
+path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install(); \
+print('Chromedriver cached at:', path)" || true
+
 COPY script_clean.py .
 COPY catalant_cookies.json .
 
