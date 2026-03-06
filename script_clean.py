@@ -647,7 +647,9 @@ def initialize_driver():
 
     from selenium.webdriver.chrome.service import Service
 
-    # Primary: system chromedriver — apt installs chromium-driver version-matched to chromium
+    # On Linux containers: use the apt-installed chromedriver (always version-matched)
+    # On Windows (local dev): fall through to Service() — Selenium's SeleniumManager
+    #   will auto-download the correct chromedriver for the installed Chrome.
     system_path = _find_binary("CHROMEDRIVER_PATH", [
         "/usr/bin/chromedriver",
         "/usr/lib/chromium/chromedriver",
@@ -657,18 +659,9 @@ def initialize_driver():
         service = Service(system_path)
         print(f"  Chromedriver (system): {system_path}")
     else:
-        # Fallback: webdriver-manager (downloads matching chromedriver)
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            from webdriver_manager.core.os_manager import ChromeType
-            is_chromium = "chromium" in (chrome_bin or "").lower()
-            mgr = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM if is_chromium else ChromeType.GOOGLE)
-            driver_path = mgr.install()
-            service = Service(driver_path)
-            print(f"  Chromedriver (webdriver-manager): {driver_path}")
-        except Exception as e:
-            print(f"  Using default Service(): {e}")
-            service = Service()
+        # Let Selenium's built-in SeleniumManager resolve the right chromedriver
+        service = Service()
+        print("  Chromedriver: SeleniumManager (auto)")
 
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {
