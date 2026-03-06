@@ -5,3 +5,5 @@
 [deploy]
   restartPolicyType = "ALWAYS"
   restartPolicyMaxRetries = 10
+  healthcheckPath = ""
+  sleepApplication = false
