@@ -404,22 +404,103 @@ def filter_new_projects(all_projects, seen_ids):
 # ============================
 # DETAIL PAGE FETCH
 # ============================
-def fetch_project_details(driver, url):
-    """Navigate to job detail page to extract more description if needed"""
-    details = {}
+
+# Headings that mark the START of the description section
+_DESC_START_HEADINGS = [
+    "description", "job description", "the role", "about the role",
+    "role description", "overview", "about the job", "the opportunity",
+    "what you'll do", "about this role",
+]
+# Headings that mark the END of the description section
+_DESC_STOP_HEADINGS = [
+    "requirements", "about you", "skills", "benefits",
+    "apply", "location", "compensation", "salary", "what we offer",
+    "qualifications", "experience", "responsibilities", "how to apply",
+]
+
+def _extract_description_from_text(body_text):
+    """Extract description from page body text using heading landmarks."""
+    lines = body_text.splitlines()
+    capturing = False
+    collected = []
+
+    for line in lines:
+        stripped = line.strip()
+        lower = stripped.lower()
+
+        # Check if this line is a stop heading
+        if capturing and any(lower == h or lower.startswith(h + " ") or lower.startswith(h + ":") for h in _DESC_STOP_HEADINGS):
+            break
+
+        # Check if this line is a start heading
+        if not capturing and any(lower == h or lower.startswith(h + " ") or lower.startswith(h + ":") for h in _DESC_START_HEADINGS):
+            capturing = True
+            continue  # skip the heading itself
+
+        if capturing and stripped:
+            collected.append(stripped)
+
+    return "\n".join(collected).strip()
+
+
+def fetch_job_details(driver, url):
+    """Open job detail page, extract full description, then return to jobs list."""
+    details = {"description": ""}
     try:
+        print(f"  Fetching full job details: {url}")
         driver.get(url)
         time.sleep(4)
-        
-        # Try to find a more specific description container on the detail page
+
+        description = ""
+
+        # --- Strategy 1: CSS selector priority list ---
+        css_selectors = [
+            "[class*='description']",
+            "[class*='job-description']",
+            "[class*='JobDescription']",
+            "[class*='details']",
+            "[class*='content']",
+            "div.prose",
+            "main",
+            "article",
+        ]
+        for sel in css_selectors:
+            try:
+                elems = driver.find_elements(By.CSS_SELECTOR, sel)
+                for elem in elems:
+                    text = elem.text.strip()
+                    if len(text) > 100:  # ignore tiny snippets
+                        description = text
+                        break
+                if description:
+                    break
+            except:
+                continue
+
+        # --- Strategy 2: Body-text heading extraction ---
+        if not description:
+            try:
+                body_text = driver.find_element(By.TAG_NAME, "body").text
+                description = _extract_description_from_text(body_text)
+            except:
+                pass
+
+        if description:
+            print(f"  Description extracted successfully ({len(description)} chars)")
+            details["description"] = description
+        else:
+            print(f"  Description not found")
+
+    except Exception as e:
+        print(f"  Detail fetch failed: {e}")
+    finally:
+        # Always return to the jobs list page
         try:
-            desc_elem = driver.find_element(By.CSS_SELECTOR, "div.prose, [class*='description'], section.mt-8")
-            details["description"] = desc_elem.text.strip()
+            driver.get(Config.JOBS_URL)
+            time.sleep(6)
         except:
             pass
-            
-    except Exception as e:
-        print(f"  ⚠️ Detail fetch failed: {e}")
+
     return details
 
 # ============================
@@ -665,13 +746,18 @@ def main():
                     print(f"🎯 Found {len(new_projects)} NEW job(s)!")
                     for project in new_projects:
                         print(f"  → {project['title'][:60]}...")
-                        # Optional: fetch full details if needed
-                        details = fetch_project_details(driver, project['url'])
+                        # Fetch full description from detail page before emailing
+                        details = fetch_job_details(driver, project['url'])
                         project.update(details)
                         
+                        # Send email AFTER description is fetched
                         emailed = send_notification(project)
+                        # Insert into DB AFTER email attempt
                         insert_project(project, emailed=emailed)
                         seen_ids.add(project['id'])
+                    
+                    # After processing all new jobs, return to jobs list
+                    _navigate_to_search(driver)
                 else:
                     print("⏳ No new jobs")
 
