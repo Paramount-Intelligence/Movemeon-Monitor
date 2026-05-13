@@ -17,6 +17,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY script_clean.py .
+COPY . .
 
-CMD ["python", "-u", "script_clean.py"]
+CMD ["python", "-u", "movemeon_monitor.py"]
