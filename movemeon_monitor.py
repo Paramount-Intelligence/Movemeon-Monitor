@@ -656,20 +656,40 @@ def _find_binary(env_var, candidates):
     return found or ""
 
 def initialize_driver():
+    import subprocess
+    from selenium.webdriver.chrome.service import Service
+
+    print("🔧 Initializing Chromium driver...", flush=True)
+
+    chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+    chromedriver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+
+    print(f"Chrome binary: {chrome_bin}", flush=True)
+    print(f"ChromeDriver path: {chromedriver_path}", flush=True)
+
+    try:
+        print(subprocess.check_output([chrome_bin, "--version"]).decode(), flush=True)
+        print(subprocess.check_output([chromedriver_path, "--version"]).decode(), flush=True)
+    except Exception as e:
+        print(f"Version check failed: {e}", flush=True)
+
     options = Options()
-    if Config.HEADLESS:
-        options.add_argument("--headless=new")
+    options.binary_location = chrome_bin
+
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-software-rasterizer")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-    from selenium.webdriver.chrome.service import Service
-    from webdriver_manager.chrome import ChromeDriverManager
-    service = Service(ChromeDriverManager().install())
+    service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {
         "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
