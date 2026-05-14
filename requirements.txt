@@ -11,7 +11,4 @@ python-dotenv>=1.0.0
 pymongo>=4.0.0
 dnspython>=2.0.0
 
-# Note: You also need ChromeDriver installed and in your PATH
-# Download from: https://chromedriver.chromium.org/
-# Or install via: pip install webdriver-manager
-# Then the script can auto-download the driver
+# ChromeDriver is managed automatically by webdriver-manager (no manual install needed)
