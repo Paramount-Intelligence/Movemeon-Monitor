@@ -198,6 +198,35 @@ def perform_login(driver):
         WebDriverWait(driver, 20).until(
             lambda d: "dashboard" in d.current_url or d.find_elements(By.CSS_SELECTOR, "div.rounded-xl.border.bg-card")
         )
+        if "onboarding" in driver.current_url:
+            print("  Detecting onboarding page. Attempting to click 'Skip'...")
+            try:
+                time.sleep(5)
+                skip_btn = None
+                for selector in [
+                    "//button[contains(text(), 'Skip')]",
+                    "//a[contains(text(), 'Skip')]",
+                    "//*[contains(text(), 'Skip')]",
+                    "button[class*='skip']",
+                    "a[class*='skip']"
+                ]:
+                    try:
+                        if selector.startswith("//"):
+                            skip_btn = driver.find_element(By.XPATH, selector)
+                        else:
+                            skip_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                        if skip_btn and skip_btn.is_displayed():
+                            break
+                    except:
+                        continue
+                if skip_btn:
+                    driver.execute_script("arguments[0].click();", skip_btn)
+                    print("  Clicked 'Skip' on onboarding page.")
+                    time.sleep(5)
+                else:
+                    print("  Could not find 'Skip' button. Will proceed with navigation.")
+            except Exception as e_skip:
+                print(f"  Failed to skip onboarding: {e_skip}")
         return True
     except Exception as e:
         print(f"WARNING: Automated login failed or timed out: {e}")

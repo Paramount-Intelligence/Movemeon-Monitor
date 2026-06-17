@@ -162,6 +162,36 @@ def perform_login(driver):
             lambda d: "dashboard" in d.current_url or d.find_elements(By.CSS_SELECTOR, "[href*='dashboard']")
         )
         print(f"  Login successful. Current URL: {driver.current_url}")
+
+        if "onboarding" in driver.current_url:
+            print("  Detecting onboarding page. Attempting to click 'Skip'...")
+            try:
+                time.sleep(5)
+                skip_btn = None
+                for selector in [
+                    "//button[contains(text(), 'Skip')]",
+                    "//a[contains(text(), 'Skip')]",
+                    "//*[contains(text(), 'Skip')]",
+                    "button[class*='skip']",
+                    "a[class*='skip']"
+                ]:
+                    try:
+                        if selector.startswith("//"):
+                            skip_btn = driver.find_element(By.XPATH, selector)
+                        else:
+                            skip_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                        if skip_btn and skip_btn.is_displayed():
+                            break
+                    except:
+                        continue
+                if skip_btn:
+                    driver.execute_script("arguments[0].click();", skip_btn)
+                    print("  Clicked 'Skip' on onboarding page.")
+                    time.sleep(5)
+                else:
+                    print("  Could not find 'Skip' button. Will proceed with navigation.")
+            except Exception as e_skip:
+                print(f"  Failed to skip onboarding: {e_skip}")
         
         save_cookies(driver)
         
@@ -315,13 +345,13 @@ def init_db():
         pass
 
 def db_is_cold_start():
-    """True if the collection has no documents."""
-    return _get_collection().find_one({}, {"_id": 1}) is None
+    """True if the collection has no MoveMeOn documents."""
+    return _get_collection().find_one({"platform": Config.PLATFORM_NAME}, {"_id": 1}) is None
 
 def get_seen_ids():
-    """Return set of all project IDs already in DB."""
+    """Return set of MoveMeOn project IDs already in DB."""
     try:
-        docs = _get_collection().find({}, {"project_id": 1, "_id": 0})
+        docs = _get_collection().find({"platform": Config.PLATFORM_NAME}, {"project_id": 1, "_id": 0})
         return {d["project_id"] for d in docs if d.get("project_id")}
     except Exception:
         return set()
@@ -661,20 +691,47 @@ def initialize_driver():
 
     print("🔧 Initializing Chromium driver...", flush=True)
 
-    chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/chromium")
-    chromedriver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
-
-    print(f"Chrome binary: {chrome_bin}", flush=True)
-    print(f"ChromeDriver path: {chromedriver_path}", flush=True)
-
-    try:
-        print(subprocess.check_output([chrome_bin, "--version"]).decode(), flush=True)
-        print(subprocess.check_output([chromedriver_path, "--version"]).decode(), flush=True)
-    except Exception as e:
-        print(f"Version check failed: {e}", flush=True)
+    chrome_bin = os.getenv("CHROME_BIN")
+    chromedriver_path = os.getenv("CHROMEDRIVER_PATH")
 
     options = Options()
-    options.binary_location = chrome_bin
+
+    if chrome_bin and os.path.exists(chrome_bin):
+        print(f"Chrome binary override: {chrome_bin}", flush=True)
+        options.binary_location = chrome_bin
+        try:
+            print(subprocess.check_output([chrome_bin, "--version"]).decode(), flush=True)
+        except Exception as e:
+            print(f"Chrome version check failed: {e}", flush=True)
+    else:
+        # Fallback to default linux paths if they exist
+        for default_path in ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]:
+            if os.path.exists(default_path):
+                print(f"Found default Chrome binary: {default_path}", flush=True)
+                options.binary_location = default_path
+                break
+
+    if chromedriver_path and os.path.exists(chromedriver_path):
+        print(f"ChromeDriver override path: {chromedriver_path}", flush=True)
+        service = Service(chromedriver_path)
+        try:
+            print(subprocess.check_output([chromedriver_path, "--version"]).decode(), flush=True)
+        except Exception as e:
+            print(f"ChromeDriver version check failed: {e}", flush=True)
+    else:
+        # Fallback to default linux paths if they exist
+        default_driver = None
+        for default_path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver"]:
+            if os.path.exists(default_path):
+                default_driver = default_path
+                break
+        
+        if default_driver:
+            print(f"Found default ChromeDriver: {default_driver}", flush=True)
+            service = Service(default_driver)
+        else:
+            print("Using default ChromeDriver via Selenium Manager", flush=True)
+            service = Service()
 
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -683,23 +740,50 @@ def initialize_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-software-rasterizer")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-    service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {
         "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     })
     return driver
 
+
 def _navigate_to_search(driver):
     """Navigate to Curated Jobs page."""
     driver.get(Config.JOBS_URL)
     time.sleep(8)
+    if "onboarding" in driver.current_url:
+        print("  [Navigation] Redirected to onboarding page. Attempting to click 'Skip'...")
+        try:
+            skip_btn = None
+            for selector in [
+                "//button[contains(text(), 'Skip')]",
+                "//a[contains(text(), 'Skip')]",
+                "//*[contains(text(), 'Skip')]",
+                "button[class*='skip']",
+                "a[class*='skip']"
+            ]:
+                try:
+                    if selector.startswith("//"):
+                        skip_btn = driver.find_element(By.XPATH, selector)
+                    else:
+                        skip_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                    if skip_btn and skip_btn.is_displayed():
+                        break
+                except:
+                    continue
+            if skip_btn:
+                driver.execute_script("arguments[0].click();", skip_btn)
+                print("  [Navigation] Clicked 'Skip' on onboarding page.")
+                time.sleep(8)
+            else:
+                print("  [Navigation] Could not find 'Skip' button.")
+        except Exception as e_skip:
+            print(f"  [Navigation] Failed to skip onboarding: {e_skip}")
 
 def setup_session(driver):
     """Setup browser session with cookies or login"""
