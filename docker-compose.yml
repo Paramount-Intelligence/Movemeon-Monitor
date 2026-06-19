@@ -3,16 +3,26 @@ services:
     image: selenium/standalone-chrome:latest
     shm_size: "2gb"
     restart: unless-stopped
+
     ports:
       - "7900:7900"
+
     expose:
       - "4444"
+
     environment:
       - SE_VNC_PASSWORD=${SE_VNC_PASSWORD}
       - SE_NODE_SESSION_TIMEOUT=86400
       - SE_SESSION_REQUEST_TIMEOUT=300
+      - SE_START_XVFB=true
+      - SE_START_VNC=true
+      - SE_START_NO_VNC=true
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+
     volumes:
-      - selenium_chrome_profile:/home/seluser/chrome-profile
+      - /opt/movemeon/selenium-profile:/home/seluser/chrome-profile
+
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4444/status || exit 1"]
       interval: 10s
@@ -23,9 +33,11 @@ services:
   movemeon-monitor:
     build: .
     restart: unless-stopped
+
     depends_on:
       selenium-chrome:
         condition: service_healthy
+
     environment:
       - SELENIUM_REMOTE_URL=http://selenium-chrome:4444/wd/hub
       - CHROME_PROFILE_DIR=/home/seluser/chrome-profile
@@ -49,6 +61,3 @@ services:
       - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
       - CHECK_INTERVAL=${CHECK_INTERVAL}
       - MAX_AGE_MINUTES=${MAX_AGE_MINUTES}
-
-volumes:
-  selenium_chrome_profile:
