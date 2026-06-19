@@ -5,30 +5,43 @@ services:
     restart: unless-stopped
     ports:
       - "7900:7900"
+    expose:
+      - "4444"
     environment:
       - SE_VNC_PASSWORD=${SE_VNC_PASSWORD}
       - SE_NODE_SESSION_TIMEOUT=86400
       - SE_SESSION_REQUEST_TIMEOUT=300
     volumes:
       - selenium_chrome_profile:/home/seluser/chrome-profile
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4444/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   movemeon-monitor:
     build: .
     restart: unless-stopped
     depends_on:
-      - selenium-chrome
+      selenium-chrome:
+        condition: service_healthy
     environment:
       - SELENIUM_REMOTE_URL=http://selenium-chrome:4444/wd/hub
       - CHROME_PROFILE_DIR=/home/seluser/chrome-profile
       - HEADLESS=false
+
       - PLATFORM_NAME=${PLATFORM_NAME}
       - PROJECTS_COLLECTION=${PROJECTS_COLLECTION}
       - SESSION_KEY=${SESSION_KEY}
+
       - MOVEMEON_EMAIL=${MOVEMEON_EMAIL}
       - MOVEMEON_PASSWORD=${MOVEMEON_PASSWORD}
       - MOVEMEON_DASHBOARD_URL=${MOVEMEON_DASHBOARD_URL}
       - MOVEMEON_JOBS_URL=${MOVEMEON_JOBS_URL}
+
       - MONGO_URI=${MONGO_URI}
+
       - SMTP_SERVER=${SMTP_SERVER}
       - SMTP_PORT=${SMTP_PORT}
       - SENDER_EMAIL=${SENDER_EMAIL}
