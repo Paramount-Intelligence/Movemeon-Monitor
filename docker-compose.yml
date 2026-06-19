@@ -1,0 +1,41 @@
+services:
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    shm_size: "2gb"
+    restart: unless-stopped
+    ports:
+      - "7900:7900"
+    environment:
+      - SE_VNC_PASSWORD=${SE_VNC_PASSWORD}
+      - SE_NODE_SESSION_TIMEOUT=86400
+      - SE_SESSION_REQUEST_TIMEOUT=300
+    volumes:
+      - selenium_chrome_profile:/home/seluser/chrome-profile
+
+  movemeon-monitor:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - selenium-chrome
+    environment:
+      - SELENIUM_REMOTE_URL=http://selenium-chrome:4444/wd/hub
+      - CHROME_PROFILE_DIR=/home/seluser/chrome-profile
+      - HEADLESS=false
+      - PLATFORM_NAME=${PLATFORM_NAME}
+      - PROJECTS_COLLECTION=${PROJECTS_COLLECTION}
+      - SESSION_KEY=${SESSION_KEY}
+      - MOVEMEON_EMAIL=${MOVEMEON_EMAIL}
+      - MOVEMEON_PASSWORD=${MOVEMEON_PASSWORD}
+      - MOVEMEON_DASHBOARD_URL=${MOVEMEON_DASHBOARD_URL}
+      - MOVEMEON_JOBS_URL=${MOVEMEON_JOBS_URL}
+      - MONGO_URI=${MONGO_URI}
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - SENDER_PASSWORD=${SENDER_PASSWORD}
+      - RECIPIENT_EMAILS=${RECIPIENT_EMAILS}
+      - CHECK_INTERVAL=${CHECK_INTERVAL}
+      - MAX_AGE_MINUTES=${MAX_AGE_MINUTES}
+
+volumes:
+  selenium_chrome_profile:

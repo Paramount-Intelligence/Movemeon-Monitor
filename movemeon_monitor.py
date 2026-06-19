@@ -735,7 +735,28 @@ def initialize_driver():
     import subprocess
     from selenium.webdriver.chrome.service import Service
 
-    print("🔧 Initializing Chromium driver...", flush=True)
+    remote_url = os.getenv("SELENIUM_REMOTE_URL", "").strip()
+    if remote_url:
+        print("🔧 Initializing remote Selenium driver...", flush=True)
+        print(f"Using remote Selenium: {remote_url}", flush=True)
+
+        options = Options()
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-extensions")
+        options.add_argument(f"--user-agent={USER_AGENT}")
+
+        profile_dir = os.getenv("CHROME_PROFILE_DIR", "").strip()
+        if profile_dir:
+            print(f"Using Chrome profile dir: {profile_dir}", flush=True)
+            options.add_argument(f"--user-data-dir={profile_dir}")
+
+        driver = webdriver.Remote(command_executor=remote_url, options=options)
+        driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": USER_AGENT})
+        return driver
+
+    print("🔧 Initializing local Chromium driver...", flush=True)
 
     chrome_bin = os.getenv("CHROME_BIN")
     chromedriver_path = os.getenv("CHROMEDRIVER_PATH")
