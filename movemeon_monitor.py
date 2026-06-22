@@ -55,6 +55,12 @@ class Config:
     COOKIES_FILE = f"{PLATFORM_NAME}_cookies.json"
     MONGO_URI    = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 
+JOB_SESSION_SELECTOR = "div.rounded-xl.border.bg-card, a[href*='/jobs/']"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+)
+
 # ============================
 # SESSION MANAGEMENT
 # ============================
@@ -126,6 +132,41 @@ def load_cookies(driver):
     except Exception:
         return False
 
+def _save_page_debug(driver, basename):
+    """Save screenshot and HTML dump for post-mortem debugging."""
+    try:
+        driver.save_screenshot(f"{basename}.png")
+        print(f"  Saved screenshot: {basename}.png")
+    except Exception as e:
+        print(f"  Could not save screenshot: {type(e).__name__}: {repr(e)}")
+    try:
+        with open(f"{basename}.html", "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
+        print(f"  Saved HTML: {basename}.html")
+    except Exception as e:
+        print(f"  Could not save HTML: {type(e).__name__}: {repr(e)}")
+
+def _log_page_state(driver, label="page"):
+    """Log URL, title, and body snippet without assuming failure cause."""
+    try:
+        print(f"  [{label}] URL: {driver.current_url}")
+        print(f"  [{label}] Title: {driver.title}")
+        body_text = driver.find_element(By.TAG_NAME, "body").text[:3000]
+        print(f"  [{label}] Body (first 3000 chars):\n{body_text}")
+    except Exception as e:
+        print(f"  [{label}] Could not read page state: {type(e).__name__}: {repr(e)}")
+
+def _find_visible_input(driver, selectors, timeout=20):
+    """Try selectors in order; return the first visible input element."""
+    def _locator(d):
+        for selector in selectors:
+            for elem in d.find_elements(By.CSS_SELECTOR, selector):
+                if elem.is_displayed():
+                    return elem
+        return False
+
+    return WebDriverWait(driver, timeout).until(_locator)
+
 def perform_login(driver):
     """Perform login to MoveMeOn"""
     try:
@@ -139,12 +180,14 @@ def perform_login(driver):
             print("  Already logged in.")
             return True
 
-        # MoveMeOn Login Selectors (based on inspection)
         # Step 1: Enter Email
         print(f"  Entering email: {Config.EMAIL}...")
-        email_field = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder*='email'], #email"))
-        )
+        email_field = _find_visible_input(driver, [
+            "input[type='email']",
+            "input[name*='email' i]",
+            "input[placeholder*='email' i]",
+            "#email",
+        ])
         email_field.send_keys(Config.EMAIL)
         email_field.send_keys(Keys.ENTER)
         
@@ -153,9 +196,12 @@ def perform_login(driver):
         time.sleep(3)
         
         # Step 2: Enter Password (wait for it to appear)
-        password_field = WebDriverWait(driver, 20).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, "input[placeholder*='password'], #password"))
-        )
+        password_field = _find_visible_input(driver, [
+            "input[type='password']",
+            "input[name*='password' i]",
+            "input[placeholder*='password' i]",
+            "#password",
+        ])
         print(f"  Entering password...")
         password_field.send_keys(Config.PASSWORD)
         password_field.send_keys(Keys.ENTER)
@@ -206,18 +252,18 @@ def perform_login(driver):
         print(f"  Verifying job cards are visible...")
         try:
             WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div.rounded-xl.border.bg-card, a[href*='/jobs/']"))
+                EC.presence_of_element_located((By.CSS_SELECTOR, JOB_SESSION_SELECTOR))
             )
             print("✅ Session established -> Discover Jobs")
             return True
         except Exception as timeout_err:
-            print(f"⏳ Timeout waiting for job cards. Saving debug screenshot...")
-            driver.save_screenshot("login_failure.png")
+            print(f"⏳ Timeout waiting for job cards after login.")
             raise timeout_err
             
     except Exception as e:
-        print(f"❌ Login failed: {e}")
-        print(f"  Final URL: {driver.current_url}")
+        print(f"❌ Login failed: {type(e).__name__}: {repr(e)}")
+        _log_page_state(driver, "login")
+        _save_page_debug(driver, "movemeon_login_failed")
         return False
 
 # ============================
@@ -303,7 +349,7 @@ def scan_for_projects(driver):
         
         # MoveMeOn Job Card Selector (Resilient version)
         WebDriverWait(driver, 25).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div.rounded-xl.border.bg-card, a[href*='/jobs/']"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, JOB_SESSION_SELECTOR))
         )
         
         # Get all job cards
@@ -761,7 +807,28 @@ def initialize_driver():
     import subprocess
     from selenium.webdriver.chrome.service import Service
 
-    print("🔧 Initializing Chromium driver...", flush=True)
+    remote_url = os.getenv("SELENIUM_REMOTE_URL", "").strip()
+    if remote_url:
+        print("🔧 Initializing remote Selenium driver...", flush=True)
+        print(f"Using remote Selenium: {remote_url}", flush=True)
+
+        options = Options()
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-extensions")
+        options.add_argument(f"--user-agent={USER_AGENT}")
+
+        profile_dir = os.getenv("CHROME_PROFILE_DIR", "").strip()
+        if profile_dir:
+            print(f"Using Chrome profile dir: {profile_dir}", flush=True)
+            options.add_argument(f"--user-data-dir={profile_dir}")
+
+        driver = webdriver.Remote(command_executor=remote_url, options=options)
+        driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": USER_AGENT})
+        return driver
+
+    print("🔧 Initializing local Chromium driver...", flush=True)
 
     chrome_bin = os.getenv("CHROME_BIN")
     chromedriver_path = os.getenv("CHROMEDRIVER_PATH")
@@ -807,6 +874,8 @@ def initialize_driver():
 
     if Config.HEADLESS:
         options.add_argument("--headless=new")
+    else:
+        print("Running in headed mode (HEADLESS=False)", flush=True)
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -816,11 +885,11 @@ def initialize_driver():
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    options.add_argument(f"user-agent={USER_AGENT}")
 
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-        "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        "userAgent": USER_AGENT
     })
     return driver
 
@@ -863,14 +932,16 @@ def setup_session(driver):
     if load_cookies(driver):
         _navigate_to_search(driver)
         try:
-            # Check if we are actually logged in (presence of job cards or dashboard elements)
-            WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, ".job-card, .curated-job, article"))
+            WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, JOB_SESSION_SELECTOR))
             )
             print("Logged in via cookies -> Curated Jobs")
             return True
-        except:
-            print("Cookies invalid or expired.")
+        except Exception as e:
+            print(f"Cookie session validation failed: {type(e).__name__}: {repr(e)}")
+            _log_page_state(driver, "cookie session")
+            _save_page_debug(driver, "cookie_session_failed")
+            print("Cookies may be invalid, expired, or page did not render as expected.")
     return perform_login(driver)
 
 # ============================
@@ -886,6 +957,10 @@ def main():
     try:
         if not setup_session(driver):
             print("❌ Failed to establish session")
+            print(
+                "Login/session failed. Check movemeon_login_failed.png/html "
+                "or cookie_session_failed.png/html on the server."
+            )
             return
         
         init_db()
