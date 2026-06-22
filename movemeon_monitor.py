@@ -26,6 +26,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# CLI flags
+ONCE_MODE = "--once" in sys.argv
+TEST_DETAILS = "--test-details" in sys.argv
+
 # ============================
 # CONFIGURATION
 # ============================
@@ -479,41 +483,110 @@ def fetch_job_details(driver, url):
     try:
         print(f"  Fetching full job details: {url}")
         driver.get(url)
-        time.sleep(4)
+        time.sleep(5)
 
-        description = ""
-
-        # --- Strategy 1: CSS selector priority list ---
-        css_selectors = [
-            "[class*='description']",
-            "[class*='job-description']",
-            "[class*='JobDescription']",
-            "[class*='details']",
-            "[class*='content']",
-            "div.prose",
-            "main",
-            "article",
-        ]
-        for sel in css_selectors:
+        # --- Click any "Read more" / "Show more" buttons to expand truncated text ---
+        for btn_sel in [
+            "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'read more')]",
+            "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'show more')]",
+            "//a[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'read more')]",
+            "//a[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'show more')]",
+            "//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'see more')]",
+            "//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'view more')]",
+        ]:
             try:
-                elems = driver.find_elements(By.CSS_SELECTOR, sel)
-                for elem in elems:
-                    text = elem.text.strip()
-                    if len(text) > 100:  # ignore tiny snippets
-                        description = text
-                        break
-                if description:
+                btn = driver.find_element(By.XPATH, btn_sel)
+                if btn.is_displayed():
+                    driver.execute_script("arguments[0].click();", btn)
+                    time.sleep(2)
+                    print(f"  Clicked expand button")
                     break
             except:
                 continue
 
-        # --- Strategy 2: Body-text heading extraction ---
+        description = ""
+
+        # --- Strategy 1: MoveMeOn-specific section cards ---
+        # The detail page has section cards. Find the one headed "Job Description"
+        # or "Why Apply" and grab the text-gray-700 content inside it.
+        try:
+            section_cards = driver.find_elements(By.CSS_SELECTOR,
+                "div.border.bg-white.p-6, div[class*='border'][class*='bg-white'][class*='p-6']"
+            )
+            desc_parts = []
+            for card in section_cards:
+                card_text = card.text.strip()
+                if not card_text:
+                    continue
+                first_line = card_text.split('\n')[0].strip()
+                if first_line in ("Job Description", "Why Apply", "The Role", "About The Role", "Overview"):
+                    # Get the content div inside, skipping the heading
+                    try:
+                        content_div = card.find_element(By.CSS_SELECTOR,
+                            "div.text-gray-700, div[class*='text-gray']"
+                        )
+                        text = content_div.text.strip()
+                    except:
+                        lines = card_text.split('\n')
+                        text = '\n'.join(lines[1:]).strip()
+                    if text and len(text) > 30:
+                        desc_parts.append(text)
+            if desc_parts:
+                description = '\n\n'.join(desc_parts)
+        except:
+            pass
+
+        # --- Strategy 2: CSS selector fallback ---
+        if not description:
+            css_selectors = [
+                "div.text-gray-700.mb-6",
+                "[class*='description']",
+                "[class*='job-description']",
+                "[class*='job-detail']",
+                "div.prose",
+                "[class*='overview']",
+                "article",
+            ]
+            for sel in css_selectors:
+                try:
+                    elems = driver.find_elements(By.CSS_SELECTOR, sel)
+                    for elem in elems:
+                        text = elem.text.strip()
+                        if len(text) > 100:
+                            description = text
+                            break
+                    if description:
+                        break
+                except:
+                    continue
+
+        # --- Strategy 3: Body-text heading extraction ---
+        body_text = ""
         if not description:
             try:
                 body_text = driver.find_element(By.TAG_NAME, "body").text
+                body_text = body_text.replace(' ', ' ').replace('\r\n', '\n').replace('\r', '\n')
                 description = _extract_description_from_text(body_text)
             except:
                 pass
+
+        # --- Strategy 4: Regex extraction from body text between section headers ---
+        if not description:
+            if not body_text:
+                try:
+                    body_text = driver.find_element(By.TAG_NAME, "body").text
+                    body_text = body_text.replace(' ', ' ').replace('\r\n', '\n').replace('\r', '\n')
+                except:
+                    pass
+            if body_text:
+                m = re.search(
+                    r'(?:Job Description|Description|About (?:the|this) (?:role|job|opportunity)|The Role|Overview|The Opportunity)\s*\n([\s\S]+?)(?=\n(?:Must-Have|Requirements|About You|Skills|Benefits|Apply|Screening|Details|Location|Compensation|Salary|What We Offer|Qualifications|Experience|Responsibilities|How to Apply|Key (?:Skills|Requirements)|Our Application)|\Z)',
+                    body_text, re.IGNORECASE
+                )
+                if m:
+                    txt = m.group(1).strip()
+                    if len(txt) > 50:
+                        description = txt
 
         if description:
             print(f"  Description extracted successfully ({len(description)} chars)")
@@ -524,7 +597,6 @@ def fetch_job_details(driver, url):
     except Exception as e:
         print(f"  Detail fetch failed: {e}")
     finally:
-        # Always return to the jobs list page
         try:
             driver.get(Config.JOBS_URL)
             time.sleep(6)
@@ -733,7 +805,8 @@ def initialize_driver():
             print("Using default ChromeDriver via Selenium Manager", flush=True)
             service = Service()
 
-    options.add_argument("--headless=new")
+    if Config.HEADLESS:
+        options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -842,8 +915,23 @@ def main():
 
                 if not all_projects:
                     print("⚠️ No jobs found")
+                    if ONCE_MODE:
+                        break
                     time.sleep(Config.CHECK_INTERVAL)
                     continue
+
+                # --test-details: force fetch details on first 2 jobs regardless of seen status
+                if TEST_DETAILS and check_count == 1:
+                    print(f"🧪 TEST: Fetching details for first 2 jobs to verify extraction...")
+                    for project in all_projects[:2]:
+                        print(f"  🧪 → {project['title'][:60]}")
+                        details = fetch_job_details(driver, project['url'])
+                        desc = details.get('description', '')
+                        print(f"    Description ({len(desc)} chars): {desc[:200]}{'...' if len(desc) > 200 else ''}")
+                        if not desc:
+                            print(f"    ❌ EMPTY description — extraction needs fixing")
+                        else:
+                            print(f"    ✅ Description extracted successfully")
 
                 new_projects = filter_new_projects(all_projects, seen_ids)
 
@@ -851,22 +939,23 @@ def main():
                     print(f"🎯 Found {len(new_projects)} NEW job(s)!")
                     for project in new_projects:
                         print(f"  → {project['title'][:60]}...")
-                        # Fetch full description from detail page before emailing
                         details = fetch_job_details(driver, project['url'])
                         project.update(details)
-                        
-                        # Send email AFTER description is fetched
+
                         emailed = send_notification(project)
-                        # Insert into DB AFTER email attempt
                         insert_project(project, emailed=emailed)
                         seen_ids.add(project['id'])
-                    
-                    # After processing all new jobs, return to jobs list
+
                     _navigate_to_search(driver)
                 else:
                     print("⏳ No new jobs")
 
                 print(f"📊 Stats: {len(all_projects)} visible, {len(seen_ids)} in DB")
+
+                if ONCE_MODE:
+                    print("\n✅ Once mode complete. Exiting...")
+                    break
+
                 time.sleep(Config.CHECK_INTERVAL)
 
             except KeyboardInterrupt:
