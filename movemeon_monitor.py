@@ -96,30 +96,43 @@ def save_cookies(driver):
 
 def load_cookies(driver):
     """Load cookies from MongoDB first, fall back to local file."""
-    cookies = None
+    session_data = None
     # Try MongoDB first
     try:
         doc = _get_session_collection().find_one({"_id": Config.SESSION_KEY})
-        if doc and doc.get("cookies"):
-            cookies = doc["cookies"]
-            print(f"  Loaded cookies from MongoDB ({Config.SESSION_KEY})")
+        if doc:
+            session_data = doc
+            print(f"  Loaded session data from MongoDB ({Config.SESSION_KEY})")
     except Exception as e:
         print(f"  ⚠️ Could not load cookies from MongoDB: {e}")
     # Fall back to local file
-    if not cookies:
+    if not session_data:
         if not os.path.exists(Config.COOKIES_FILE):
             return False
         try:
             with open(Config.COOKIES_FILE, 'r') as f:
-                cookies = json.load(f)
-            print(f"  Loaded cookies from local file ({Config.COOKIES_FILE})")
+                session_data = json.load(f)
+            print(f"  Loaded session data from local file ({Config.COOKIES_FILE})")
         except Exception:
             return False
+    if not session_data:
+        return False
+
+    cookies = None
+    local_storage = None
+    if isinstance(session_data, list):
+        cookies = session_data
+    elif isinstance(session_data, dict):
+        cookies = session_data.get("cookies")
+        local_storage = session_data.get("local_storage")
+
     if not cookies:
         return False
+
     try:
-        driver.get(Config.DASHBOARD_URL)
-        time.sleep(2)
+        # Navigate to base domain first so we can set cookies/LocalStorage for movemeon.com
+        driver.get("https://portal.movemeon.com/")
+        time.sleep(3)
         driver.delete_all_cookies()
         for cookie in cookies:
             # Update domain check: accept if it contains movemeon.com
@@ -128,8 +141,17 @@ def load_cookies(driver):
                     driver.add_cookie(cookie)
                 except Exception:
                     pass
+        # Restore LocalStorage if present
+        if local_storage:
+            try:
+                for key, value in local_storage.items():
+                    driver.execute_script("window.localStorage.setItem(arguments[0], arguments[1]);", key, value)
+                print("  Restored LocalStorage variables.")
+            except Exception as e_ls:
+                print(f"  ⚠️ Failed to restore LocalStorage: {e_ls}")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"  ⚠️ Error restoring session: {e}")
         return False
 
 def _save_page_debug(driver, basename):

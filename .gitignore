@@ -53,3 +53,6 @@ Thumbs.db
 
 # Test files (keep original)
 script_test.py
+
+cookie_session_failed.png
+cookie_session_failed.html
