@@ -20,8 +20,8 @@ services:
       - SE_NODE_MAX_SESSIONS=1
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
 
-    volumes:
-      - /opt/movemeon/selenium-profile:/home/seluser/chrome-profile
+    tmpfs:
+      - /dev/shm:rw,nosuid,nodev,noexec,size=2g
 
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4444/status || exit 1"]
@@ -40,7 +40,6 @@ services:
 
     environment:
       - SELENIUM_REMOTE_URL=http://selenium-chrome:4444/wd/hub
-      - CHROME_PROFILE_DIR=/home/seluser/chrome-profile
       - HEADLESS=false
 
       - PLATFORM_NAME=${PLATFORM_NAME}
