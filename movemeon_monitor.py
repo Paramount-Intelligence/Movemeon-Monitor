@@ -51,7 +51,7 @@ class Config:
     RECIPIENT_EMAILS = [e.strip() for e in os.getenv("RECIPIENT_EMAILS", "").split(",") if e.strip()]
     CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 60))
     MAX_AGE_MINUTES = int(os.getenv("MAX_AGE_MINUTES", 60))
-    HEADLESS = os.getenv("HEADLESS", "False").lower() == "true"
+    HEADLESS = os.getenv("HEADLESS", "True" if os.name != "nt" else "False").lower() == "true"
     COOKIES_FILE = f"{PLATFORM_NAME}_cookies.json"
     MONGO_URI    = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 
