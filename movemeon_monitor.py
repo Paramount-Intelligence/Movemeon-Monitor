@@ -817,7 +817,10 @@ def initialize_driver():
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-extensions")
+        options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument(f"--user-agent={USER_AGENT}")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
 
         profile_dir = os.getenv("CHROME_PROFILE_DIR", "").strip()
         if profile_dir:
@@ -826,6 +829,14 @@ def initialize_driver():
 
         driver = webdriver.Remote(command_executor=remote_url, options=options)
         driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": USER_AGENT})
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+                window.chrome = {runtime: {}};
+            """
+        })
         return driver
 
     print("🔧 Initializing local Chromium driver...", flush=True)
