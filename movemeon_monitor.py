@@ -807,6 +807,8 @@ def initialize_driver():
     import subprocess
     from selenium.webdriver.chrome.service import Service
 
+    proxy_url = os.getenv("PROXY_URL", "").strip()
+
     remote_url = os.getenv("SELENIUM_REMOTE_URL", "").strip()
     if remote_url:
         print("🔧 Initializing remote Selenium driver...", flush=True)
@@ -821,6 +823,10 @@ def initialize_driver():
         options.add_argument(f"--user-agent={USER_AGENT}")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+
+        if proxy_url:
+            print(f"Using proxy: {proxy_url.split('@')[-1]}", flush=True)
+            options.add_argument(f"--proxy-server={proxy_url}")
 
         profile_dir = os.getenv("CHROME_PROFILE_DIR", "").strip()
         if profile_dir:
