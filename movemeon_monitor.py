@@ -49,7 +49,8 @@ class Config:
     SENDER_EMAIL = os.getenv("SENDER_EMAIL")
     SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
     RECIPIENT_EMAILS = [e.strip().replace('"', '').replace("'", "") for e in os.getenv("RECIPIENT_EMAILS", "").split(",") if e.strip()]
-    CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 60))
+    DAILY_RUN_HOUR = int(os.getenv("DAILY_RUN_HOUR", 23))    # 11 PM PKT
+    DAILY_RUN_MINUTE = int(os.getenv("DAILY_RUN_MINUTE", 0))
     MAX_AGE_MINUTES = int(os.getenv("MAX_AGE_MINUTES", 60))
     HEADLESS = os.getenv("HEADLESS", "True" if os.name != "nt" else "False").lower() == "true"
     COOKIES_FILE = f"{PLATFORM_NAME}_cookies.json"
@@ -984,11 +985,39 @@ def setup_session(driver):
     return perform_login(driver)
 
 # ============================
+# DAILY SCHEDULE
+# ============================
+def next_run_time():
+    """Return the next scheduled run datetime in PKT."""
+    now = datetime.now(PKT)
+    target = now.replace(
+        hour=Config.DAILY_RUN_HOUR,
+        minute=Config.DAILY_RUN_MINUTE,
+        second=0,
+        microsecond=0,
+    )
+    if now >= target:
+        target += timedelta(days=1)
+    return target
+
+def sleep_until_next_run():
+    """Block until the next daily run time (11 PM PKT by default)."""
+    target = next_run_time()
+    seconds = (target - datetime.now(PKT)).total_seconds()
+    hours = seconds / 3600
+    print(
+        f"💤 Next run at {target.strftime('%Y-%m-%d %H:%M:%S')} PKT "
+        f"(in {hours:.1f} hours)"
+    )
+    time.sleep(max(seconds, 0))
+
+# ============================
 # MAIN MONITORING LOOP
 # ============================
 def main():
     print("=" * 50)
     print(f"🚀 {Config.PLATFORM_NAME.capitalize()} Job Monitor")
+    print(f"📅 Daily run: {Config.DAILY_RUN_HOUR:02d}:{Config.DAILY_RUN_MINUTE:02d} PKT")
     print("=" * 50)
     
     driver = initialize_driver()
@@ -1019,6 +1048,9 @@ def main():
         check_count = 0
         while True:
             try:
+                if not ONCE_MODE:
+                    sleep_until_next_run()
+
                 check_count += 1
                 print(f"\n{'='*30}")
                 print(f"🔄 Check #{check_count} - {datetime.now(PKT).strftime('%H:%M:%S')} PKT")
@@ -1031,7 +1063,6 @@ def main():
                     print("⚠️ No jobs found")
                     if ONCE_MODE:
                         break
-                    time.sleep(Config.CHECK_INTERVAL)
                     continue
 
                 # --test-details: force fetch details on first 2 jobs regardless of seen status
@@ -1070,13 +1101,12 @@ def main():
                     print("\n✅ Once mode complete. Exiting...")
                     break
 
-                time.sleep(Config.CHECK_INTERVAL)
-
             except KeyboardInterrupt:
                 raise
             except Exception as loop_err:
-                print(f"⚠️ Check failed: {loop_err} — retrying...")
-                time.sleep(Config.CHECK_INTERVAL)
+                print(f"⚠️ Check failed: {loop_err} — will retry at next scheduled run...")
+                if ONCE_MODE:
+                    break
             
     except KeyboardInterrupt:
         print("\n⏹️ Stopped by user")
